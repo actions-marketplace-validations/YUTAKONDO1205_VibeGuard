@@ -7,3 +7,6 @@ coverage/
 .env
 .env.local
 .vscode/settings.json
+AGENTS.md
+README-CODEX.md
+.codex
