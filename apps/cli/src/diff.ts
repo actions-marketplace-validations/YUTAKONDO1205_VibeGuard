@@ -1,0 +1,183 @@
+/**
+ * Diff scanning support.
+ *
+ * `parseUnifiedDiff` reads `git diff` output (preferably with `--unified=0`
+ * for tight ranges) and returns the set of *added* line numbers for each
+ * touched file in the new revision.
+ *
+ * `scanDiff` is the high-level entry: it runs `git diff` for the given
+ * range, scans each touched file from the working tree, then filters
+ * findings to only those that overlap an added line.
+ *
+ * Why scan the whole file then filter (instead of scanning only the added
+ * snippet)? Regex context: rules look at surrounding lines (e.g., the
+ * comment-line skip in matcher-utils, multi-line patterns). Slicing the
+ * file would lose that context and produce subtly wrong matches.
+ */
+
+import { spawn } from 'node:child_process';
+import { readFile } from 'node:fs/promises';
+import { join } from 'node:path';
+import {
+  Analyzer,
+  ENGINE_VERSION,
+  detectLanguageFromPath,
+  type AnalyzerOptions,
+} from '@vibeguard/analyzer-core';
+import {
+  emptySummary,
+  summarize,
+  compareSeverity,
+  type Finding,
+  type ScanMode,
+  type ScanResponse,
+} from '@vibeguard/findings-schema';
+
+const FILE_HEADER_RE = /^\+\+\+ b\/(.+)$/;
+const DEV_NULL = /^\+\+\+ \/dev\/null$/;
+const HUNK_HEADER_RE = /^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@/;
+
+/** Map of file path (post-image, repo-relative) → set of added 1-based line numbers. */
+export type DiffMap = Map<string, Set<number>>;
+
+/**
+ * Parse `git diff` output. Recognises the `+++ b/<path>` headers and
+ * `@@ -a,b +c,d @@` hunk headers; collects the added lines per file.
+ */
+export function parseUnifiedDiff(diff: string): DiffMap {
+  const out: DiffMap = new Map();
+  const lines = diff.split('\n');
+  let currentFile: string | null = null;
+  let nextLine = 0;
+  let remaining = 0;
+
+  for (const raw of lines) {
+    if (DEV_NULL.test(raw)) {
+      currentFile = null;
+      continue;
+    }
+    const fileMatch = FILE_HEADER_RE.exec(raw);
+    if (fileMatch) {
+      currentFile = fileMatch[1] ?? null;
+      remaining = 0;
+      continue;
+    }
+    if (!currentFile) continue;
+
+    const hunkMatch = HUNK_HEADER_RE.exec(raw);
+    if (hunkMatch) {
+      nextLine = Number.parseInt(hunkMatch[1] ?? '0', 10);
+      // Default count is 1 when omitted (per unified diff format).
+      remaining = hunkMatch[2] != null ? Number.parseInt(hunkMatch[2], 10) : 1;
+      continue;
+    }
+
+    if (remaining <= 0) continue;
+
+    if (raw.startsWith('+') && !raw.startsWith('+++')) {
+      let bucket = out.get(currentFile);
+      if (!bucket) {
+        bucket = new Set<number>();
+        out.set(currentFile, bucket);
+      }
+      bucket.add(nextLine);
+      nextLine += 1;
+      remaining -= 1;
+    } else if (raw.startsWith(' ')) {
+      // Context line — only appears with --unified > 0.
+      nextLine += 1;
+      remaining -= 1;
+    } else if (raw.startsWith('-')) {
+      // Deletion: doesn't advance the new-file line counter.
+    }
+  }
+
+  return out;
+}
+
+export async function gitDiff(range: string, cwd: string): Promise<string> {
+  return spawnCapture('git', ['diff', '--unified=0', '--no-color', range, '--'], cwd);
+}
+
+function spawnCapture(cmd: string, args: string[], cwd: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const child = spawn(cmd, args, { cwd, stdio: ['ignore', 'pipe', 'pipe'] });
+    let stdout = '';
+    let stderr = '';
+    child.stdout.on('data', (b) => (stdout += b.toString('utf8')));
+    child.stderr.on('data', (b) => (stderr += b.toString('utf8')));
+    child.on('error', reject);
+    child.on('close', (code) => {
+      if (code === 0) resolve(stdout);
+      else reject(new Error(`${cmd} ${args.join(' ')} exited ${code}: ${stderr.trim()}`));
+    });
+  });
+}
+
+export interface ScanDiffOptions extends AnalyzerOptions {
+  cwd: string;
+  range: string;
+  mode?: ScanMode;
+  includeRemediation?: boolean;
+  /** Pre-computed diff text instead of running git (for tests). */
+  diffText?: string;
+}
+
+/** True when finding's [startLine, endLine] overlaps any added line. */
+function overlapsAdded(finding: Finding, added: Set<number>): boolean {
+  const start = finding.startLine ?? 0;
+  if (!start) return false;
+  const end = finding.endLine ?? start;
+  for (let line = start; line <= end; line++) {
+    if (added.has(line)) return true;
+  }
+  return false;
+}
+
+export async function scanDiff(options: ScanDiffOptions): Promise<ScanResponse> {
+  const startedAt = Date.now();
+  const diffText = options.diffText ?? (await gitDiff(options.range, options.cwd));
+  const diffMap = parseUnifiedDiff(diffText);
+  const analyzer = new Analyzer(options);
+  const findings: Finding[] = [];
+
+  for (const [relPath, added] of diffMap) {
+    if (added.size === 0) continue;
+    const language = detectLanguageFromPath(relPath);
+    let content: string;
+    try {
+      content = await readFile(join(options.cwd, relPath), 'utf8');
+    } catch {
+      // File deleted in the new revision, or unreadable — skip.
+      continue;
+    }
+    const result = analyzer.scan({
+      targetType: 'diff',
+      filePath: relPath,
+      content,
+      language,
+      mode: options.mode ?? 'standard',
+      includeRemediation: options.includeRemediation,
+    });
+    for (const f of result.findings) {
+      if (overlapsAdded(f, added)) findings.push(f);
+    }
+  }
+
+  findings.sort((a, b) => {
+    const sev = compareSeverity(a.severity, b.severity);
+    if (sev !== 0) return sev;
+    const fileA = a.filePath ?? '';
+    const fileB = b.filePath ?? '';
+    if (fileA !== fileB) return fileA.localeCompare(fileB);
+    return (a.startLine ?? 0) - (b.startLine ?? 0);
+  });
+
+  return {
+    summary: findings.length ? summarize(findings) : emptySummary(),
+    findings,
+    executionTimeMs: Date.now() - startedAt,
+    engineVersions: { core: ENGINE_VERSION },
+    generatedAt: new Date().toISOString(),
+  };
+}

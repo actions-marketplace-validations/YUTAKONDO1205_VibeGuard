@@ -10,6 +10,8 @@ export interface CliArgs {
   noRemediation: boolean;
   knownLanguagesOnly: boolean;
   ignore: string[];
+  /** Git revision range; when set, scan only added lines in `git diff <range>`. */
+  diff?: string;
   showHelp: boolean;
   showVersion: boolean;
 }
@@ -27,6 +29,8 @@ Options:
   --fail-on <level>             Exit non-zero when a finding meets this severity (default: high).
                                 One of: critical, high, medium, low, never
   --ignore <name>               Extra directory name to ignore (repeatable)
+  --diff <range>                Scan only lines added in \`git diff <range>\`
+                                (e.g. main...HEAD, origin/main..., HEAD~3..HEAD)
   --known-only                  Only scan files whose extension maps to a known language
   --no-remediation              Skip remediation generation
   --no-color                    Disable ANSI colours
@@ -37,6 +41,7 @@ Examples:
   vibeguard ./src
   vibeguard ./src --format sarif --out report.sarif
   vibeguard suspicious.py --fail-on critical
+  vibeguard . --diff origin/main...HEAD --format markdown
 `;
 
 export function parseArgs(argv: string[]): CliArgs | { help: true } | { version: true } | { error: string } {
@@ -92,6 +97,12 @@ export function parseArgs(argv: string[]): CliArgs | { help: true } | { version:
       args.ignore.push(v);
       continue;
     }
+    if (a === '--diff') {
+      const v = argv[++i];
+      if (!v) return { error: '--diff requires a git range (e.g. main...HEAD)' };
+      args.diff = v;
+      continue;
+    }
     if (a === '--known-only') {
       args.knownLanguagesOnly = true;
       continue;
@@ -110,7 +121,15 @@ export function parseArgs(argv: string[]): CliArgs | { help: true } | { version:
     if (a) positional.push(a);
   }
 
-  if (positional.length === 0) return { help: true };
+  if (positional.length === 0) {
+    // With --diff, the path defaults to the current working directory
+    // (the diff is the source of truth for which files to read).
+    if (args.diff) {
+      args.target = '.';
+      return args;
+    }
+    return { help: true };
+  }
   if (positional.length > 1) {
     return { error: `expected exactly one path, got ${positional.length}` };
   }
