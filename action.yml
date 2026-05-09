@@ -1,4 +1,4 @@
-name: 'VibeGuard'
+name: 'Vibe-Guard'
 description: 'Security diagnostics for AI-generated code. Outputs SARIF / Markdown / JSON; supports PR diff scanning.'
 author: 'KONDO YUTA'
 
