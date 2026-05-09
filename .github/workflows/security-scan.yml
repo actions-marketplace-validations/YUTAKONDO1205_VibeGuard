@@ -129,3 +129,49 @@ jobs:
           COUNT=$(node -e "console.log(JSON.parse(require('fs').readFileSync('vuln.json','utf8')).findings.length)")
           echo "samples/vulnerable findings: $COUNT"
           test "$COUNT" -ge 15
+
+  # PR diff scan: scan only the lines this PR touches. Complements the
+  # whole-repo self-scan above by giving reviewers a tight, low-noise list
+  # of "what's new in this PR". Runs on PRs only.
+  pr-diff-scan:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Need history on both sides of the diff.
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - run: npm ci
+
+      - run: npm run build
+
+      - name: Run diff scan (Markdown for PR comment)
+        run: |
+          node apps/cli/dist/index.js \
+            --diff "origin/${{ github.base_ref }}...HEAD" \
+            --mode standard \
+            --format markdown \
+            --out diff-report.md \
+            --fail-on never
+
+      - name: Post diff-scan PR comment
+        if: github.event.pull_request.head.repo.full_name == github.repository
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: vibeguard-diff
+          path: diff-report.md
+
+      - name: Enforce diff-scan severity gate (high)
+        run: |
+          node apps/cli/dist/index.js \
+            --diff "origin/${{ github.base_ref }}...HEAD" \
+            --mode standard \
+            --format json \
+            --out diff.json \
+            --fail-on high

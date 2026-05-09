@@ -81,7 +81,25 @@ PR / 変更を「完了」と見なす最低基準。
 
 ---
 
-## 7. Suppress コメント運用
+## 7. 差分スキャン
+
+PR レビューでは「この PR で何が*新しく*入るのか」を最短で把握したい。CLI の `--diff <range>` はこの用途専用：
+
+```bash
+node apps/cli/dist/index.js --diff origin/main...HEAD --format markdown
+```
+
+- 内部で `git diff <range> --unified=0` を実行
+- 変更ファイルを working tree から読み込み、analyzer で**フルスキャン**（regex の context を保つため）
+- 追加行と重なる finding のみ採用
+
+CI の `pr-diff-scan` ジョブは PR ごとに走り、別 sticky コメント（`vibeguard-diff` ヘッダ）で結果を貼る。`high` 以上で失敗。
+
+実装は [apps/cli/src/diff.ts](apps/cli/src/diff.ts) に集中。fs / git 依存があるため、Chrome 拡張からは使えない（PR 差分はブラウザ側で別途 DOM/API 抽出する）。
+
+---
+
+## 8. Suppress コメント運用
 
 ルール定義ファイルやテストフィクスチャは、検出対象の文字列（`eval(` / dummy token / `verify=False` など）を**意図的に**含む。これらは以下の pragma で除外する。
 
@@ -100,7 +118,7 @@ exec(userInput);
 
 ---
 
-## 8. 参考
+## 9. 参考
 
 - 設計書: [設計書.md](設計書.md)
 - 開発ロードマップ: [README.md §開発フェーズ](README.md)

@@ -37,4 +37,18 @@ describe('parseArgs', () => {
     const r = parseArgs(['./src', '--ignore', 'a', '--ignore', 'b']);
     expect((r as { ignore: string[] }).ignore).toEqual(['a', 'b']);
   });
+
+  it('accepts --diff with a range', () => {
+    const r = parseArgs(['./src', '--diff', 'main...HEAD']);
+    expect(r).toMatchObject({ target: './src', diff: 'main...HEAD' });
+  });
+
+  it('--diff without a path defaults target to "."', () => {
+    const r = parseArgs(['--diff', 'origin/main...HEAD']);
+    expect(r).toMatchObject({ target: '.', diff: 'origin/main...HEAD' });
+  });
+
+  it('--diff requires a value', () => {
+    expect(parseArgs(['./src', '--diff'])).toHaveProperty('error');
+  });
 });

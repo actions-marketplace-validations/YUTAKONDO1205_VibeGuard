@@ -5,6 +5,7 @@ import { compareSeverity, type Severity } from '@vibeguard/findings-schema';
 import { toSarif } from '@vibeguard/sarif-adapter';
 import { parseArgs, HELP_TEXT } from './args.js';
 import { formatHuman, formatMarkdown } from './format.js';
+import { scanDiff } from './diff.js';
 
 const VERSION = '0.1.0';
 
@@ -35,12 +36,21 @@ async function main(): Promise<number> {
 
   let scan;
   try {
-    scan = await scanPath(args.target, {
-      mode: args.mode,
-      includeRemediation: !args.noRemediation,
-      ignore: args.ignore,
-      knownLanguagesOnly: args.knownLanguagesOnly,
-    });
+    if (args.diff) {
+      scan = await scanDiff({
+        cwd: args.target,
+        range: args.diff,
+        mode: args.mode,
+        includeRemediation: !args.noRemediation,
+      });
+    } else {
+      scan = await scanPath(args.target, {
+        mode: args.mode,
+        includeRemediation: !args.noRemediation,
+        ignore: args.ignore,
+        knownLanguagesOnly: args.knownLanguagesOnly,
+      });
+    }
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     process.stderr.write(`error: ${message}\n`);
