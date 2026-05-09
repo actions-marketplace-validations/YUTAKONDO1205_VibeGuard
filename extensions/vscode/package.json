@@ -4,6 +4,7 @@
   "description": "Security diagnostics for AI-generated code, on save and on demand.",
   "version": "0.1.0",
   "publisher": "yutakondo",
+  "icon": "icon.png",
   "license": "MIT",
   "homepage": "https://github.com/YUTAKONDO1205/VibeGuard#readme",
   "repository": {
