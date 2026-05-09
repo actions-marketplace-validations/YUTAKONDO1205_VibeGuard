@@ -1,7 +1,20 @@
+# Files excluded from the published .vsix bundle.
+#
+# Everything the extension actually needs at runtime is bundled into
+# dist/extension.js by esbuild (see package.json scripts.build), so we strip
+# TS sources, toolchain config, source maps, and node_modules — including the
+# monorepo workspace symlinks that vsce would otherwise refuse.
+
 .vscode/**
 src/**
 tsconfig.json
 **/*.ts
 **/*.map
 node_modules/**
+.eslintrc*
+.prettierrc*
+.git/**
+.gitignore
+.gitattributes
+*.vsix
 !dist/**

@@ -3,8 +3,32 @@
   "displayName": "VibeGuard",
   "description": "Security diagnostics for AI-generated code, on save and on demand.",
   "version": "0.1.0",
-  "private": true,
-  "publisher": "vibeguard",
+  "publisher": "yutakondo",
+  "icon": "icon.png",
+  "license": "MIT",
+  "homepage": "https://github.com/YUTAKONDO1205/VibeGuard#readme",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/YUTAKONDO1205/VibeGuard.git"
+  },
+  "bugs": {
+    "url": "https://github.com/YUTAKONDO1205/VibeGuard/issues"
+  },
+  "categories": [
+    "Linters",
+    "Other"
+  ],
+  "keywords": [
+    "security",
+    "sarif",
+    "ai",
+    "vibe-coding",
+    "code-review"
+  ],
+  "galleryBanner": {
+    "color": "#4B2A8A",
+    "theme": "dark"
+  },
   "engines": {
     "vscode": "^1.85.0",
     "node": ">=18"
