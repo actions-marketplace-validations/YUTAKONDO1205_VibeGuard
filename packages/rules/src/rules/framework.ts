@@ -1,3 +1,8 @@
+// vibeguard:disable-file VG-FW-001 VG-FW-002 VG-FW-003
+// This file *defines* the framework rules; the literal patterns
+// (`DEBUG = True`, `app.run(debug=True)`, `cors({ origin: '*' })`,
+// `Access-Control-Allow-Origin: *`, `'origins': '*'`) appear inside
+// regex sources and remediation examples by design.
 // Framework-specific configuration rules. These detect dangerous defaults
 // that AI-generated scaffolding routinely leaves in place: Django DEBUG=True,
 // Flask debug servers, wildcard CORS, etc. The rule-ID prefix VG-FW groups
