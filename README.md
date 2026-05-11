@@ -2,7 +2,10 @@
 
 [![CI](https://github.com/YUTAKONDO1205/VibeGuard/actions/workflows/ci.yml/badge.svg)](https://github.com/YUTAKONDO1205/VibeGuard/actions/workflows/ci.yml)
 [![Security Scan](https://github.com/YUTAKONDO1205/VibeGuard/actions/workflows/security-scan.yml/badge.svg)](https://github.com/YUTAKONDO1205/VibeGuard/actions/workflows/security-scan.yml)
-[![GitHub Marketplace](https://img.shields.io/badge/Marketplace-Vibe--Guard--AICoding-blue?logo=github)](https://github.com/marketplace/actions/vibe-guard-aicoding)
+[![GitHub Marketplace](https://img.shields.io/badge/GitHub%20Action-Vibe--Guard--AICoding-blue?logo=github)](https://github.com/marketplace/actions/vibe-guard-aicoding)
+[![VS Code Marketplace](https://img.shields.io/badge/VS%20Code-vibeguard--aicoding-007ACC?logo=visualstudiocode)](https://marketplace.visualstudio.com/items?itemName=yutakondo.vibeguard-aicoding)
+[![Open VSX](https://img.shields.io/badge/Open%20VSX-vibeguard--aicoding-c160ef?logo=eclipseide)](https://open-vsx.org/extension/yutakondo/vibeguard-aicoding)
+[![Chrome Web Store](https://img.shields.io/badge/Chrome%20Web%20Store-VibeGuard-4285F4?logo=googlechrome&logoColor=white)](https://chromewebstore.google.com/detail/ggdiodcjmdnkhncnpafcjokgonhmhbdf)
 
 Author: Kondo Yuta（近藤悠太）
 
@@ -17,6 +20,19 @@ You can run it at three places, and you'll get the same answer at every one of t
 The analysis engine is shared across all three, so a finding looks the same in your editor, in your browser, and in the PR comment.
 
 For more detail: the design document is in [DESIGN.ja.md](DESIGN.ja.md) (Japanese). The privacy policy is in [PRIVACY.md](PRIVACY.md) — VibeGuard never sends your code anywhere.
+
+## Install
+
+VibeGuard is published on four channels. All of them run the same analysis engine, so the verdict on a given snippet is identical across editor, browser, and CI.
+
+| Channel | Where to get it | Best for |
+|---|---|---|
+| **VS Code Marketplace** | [marketplace.visualstudio.com/items?itemName=yutakondo.vibeguard-aicoding](https://marketplace.visualstudio.com/items?itemName=yutakondo.vibeguard-aicoding) | Inline diagnostics on save while you write code in VS Code. Publisher `yutakondo`, extension `vibeguard-aicoding`. |
+| **Open VSX Registry** | [open-vsx.org/extension/yutakondo/vibeguard-aicoding](https://open-vsx.org/extension/yutakondo/vibeguard-aicoding) | Same VS Code extension, mirrored for VSCodium / Cursor / Gitpod / code-server and other editors that pull from Open VSX instead of the Microsoft Marketplace. |
+| **Chrome Web Store** | [chromewebstore.google.com/detail/ggdiodcjmdnkhncnpafcjokgonhmhbdf](https://chromewebstore.google.com/detail/ggdiodcjmdnkhncnpafcjokgonhmhbdf) | Scan code you see in the browser — GitHub PRs, Stack Overflow answers, blog posts, chat windows. Side Panel + right-click "Scan with VibeGuard". 100% local analysis. |
+| **GitHub Marketplace (Action)** | [github.com/marketplace/actions/vibe-guard-aicoding](https://github.com/marketplace/actions/vibe-guard-aicoding) | Block risky PRs in CI. `uses: YUTAKONDO1205/VibeGuard@v0` — see the [Reusable Action](#reusable-action-github-marketplace) section for inputs / outputs. |
+
+Source of truth for all four channels: this repository (MIT-licensed). The CLI under [`apps/cli`](apps/cli) is the same binary the Action wraps, and the analyzer-core under [`packages/analyzer-core`](packages/analyzer-core) is what powers both extensions.
 
 ## Monorepo layout
 
