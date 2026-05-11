@@ -4,22 +4,26 @@
 [![Security Scan](https://github.com/YUTAKONDO1205/VibeGuard/actions/workflows/security-scan.yml/badge.svg)](https://github.com/YUTAKONDO1205/VibeGuard/actions/workflows/security-scan.yml)
 [![GitHub Marketplace](https://img.shields.io/badge/Marketplace-Vibe--Guard--AICoding-blue?logo=github)](https://github.com/marketplace/actions/vibe-guard-aicoding)
 
-Author: Kondo Yuta (近藤悠太)
+Author: Kondo Yuta
 
-A security-diagnostic platform built specifically for AI-generated code. It runs the same analysis core at three stages — **while you're writing (VS Code)**, **while you're browsing (Chrome)**, and **before you merge (GitHub Actions / CLI)** — and surfaces risky patterns alongside concrete remediation guidance.
+VibeGuard is a security scanner for AI-generated code. It catches the bugs that "looks fine, ships fine" code tends to hide: missing input checks, hard-coded passwords, skipped login checks, exceptions silently caught, and so on.
 
-## Overview
+You can run it at three places, and you'll get the same answer at every one of them:
 
-Code written by generative AI tends to get adopted in a "well, it works" state, which leaves typical landmines in place: missing input validation, hardcoded secrets, skipped auth checks, swallowed exceptions, and so on. VibeGuard catches those early. The analysis logic lives in a shared package, so the verdict is identical across editor, browser, and CI — that consistency is the project's top design principle.
+- **While you write** — VS Code extension. Save the file, see findings inline.
+- **While you read** — Chrome extension. Scan code snippets on any web page.
+- **Before you merge** — CLI and GitHub Action. Block a PR when something risky lands.
 
-See [設計書.md](設計書.md) for the full design document. The privacy policy is in [PRIVACY.md](PRIVACY.md) (VibeGuard never transmits your code to a third party).
+The analysis engine is shared across all three, so a finding looks the same in your editor, in your browser, and in the PR comment.
+
+For more detail: the design document is in [DESIGN.ja.md](DESIGN.ja.md) (Japanese). The privacy policy is in [PRIVACY.md](PRIVACY.md) — VibeGuard never sends your code anywhere.
 
 ## Monorepo layout
 
 ```text
 vibeguard-codex/
 ├─ AGENTS.md                  # Project-wide rules for Codex agents
-├─ 設計書.md                   # Detailed design doc v0.2
+├─ DESIGN.ja.md                # Detailed design doc v0.2 (Japanese)
 ├─ .codex/                    # Codex project config / agent definitions
 │  ├─ config.toml
 │  └─ agents/{planner,generator,evaluator}.toml
