@@ -52,6 +52,7 @@ jobs:
             --format sarif \
             --out report.sarif \
             --ignore samples \
+            --ignore test_problem \
             --ignore dist \
             --ignore node_modules \
             --ignore .git \
@@ -64,6 +65,7 @@ jobs:
             --format markdown \
             --out report.md \
             --ignore samples \
+            --ignore test_problem \
             --ignore dist \
             --ignore node_modules \
             --ignore .git \
@@ -91,6 +93,7 @@ jobs:
             --format json \
             --out gate.json \
             --ignore samples \
+            --ignore test_problem \
             --ignore dist \
             --ignore node_modules \
             --ignore .git \
@@ -159,6 +162,7 @@ jobs:
             --format markdown \
             --out diff-report.md \
             --ignore samples \
+            --ignore test_problem \
             --fail-on never
 
       - name: Post diff-scan PR comment
@@ -168,10 +172,11 @@ jobs:
           header: vibeguard-diff
           path: diff-report.md
 
-      # samples/ contains intentionally vulnerable fixtures that demonstrate
-      # what each rule catches; the dedicated `samples` job above already
-      # validates them. Excluding samples here keeps the PR gate focused on
-      # real source changes (mirrors --ignore samples in self-scan).
+      # samples/ and test_problem/ both contain intentionally vulnerable
+      # fixtures that demonstrate what each rule catches; the dedicated
+      # `samples` job above already validates samples/. Excluding both here
+      # keeps the PR gate focused on real source changes (mirrors --ignore
+      # samples / test_problem in self-scan).
       - name: Enforce diff-scan severity gate (high)
         run: |
           node apps/cli/dist/index.js \
@@ -180,4 +185,5 @@ jobs:
             --format json \
             --out diff.json \
             --ignore samples \
+            --ignore test_problem \
             --fail-on high
