@@ -1,1 +1,0 @@
-CLI=/c/Users/PC_User/VibeGuard/apps/cli/dist/index.js

@@ -28,3 +28,7 @@ diff-report.md
 vibeguard-chrome-*.zip
 vibeguard-aicoding-*.vsix
 vibeguard-cli-*.tgz
+
+# Paper / research experiment data (local-only; outputs are regenerable,
+# contains machine-specific paths and a stray nested git repo)
+paper_data/
