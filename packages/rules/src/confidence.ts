@@ -63,18 +63,36 @@ export function isTestPath(filePath?: string): boolean {
 const HASH_NOT_COMMENT = new Set(['javascript', 'typescript', 'java', 'go', 'csharp']);
 
 /**
- * Decide whether line `lineNumber` (1-based) begins *inside* a multi-line
- * docstring (Python triple-quotes) or a C-style block comment that was opened
- * on an earlier line. This is a deliberately small heuristic state machine: it
- * scans every line strictly before the match line, toggling block state. It is
- * the complement to `isCommentLine` (which only catches whole-line `//`/`#`
- * comments) and to `runRegex({ skipCommentLines })` (same limitation).
+ * Languages whose multi-line string literals act as docstrings (triple-quoted
+ * `"""`/`'''`). Only Python among the supported languages uses these as the
+ * idiomatic documentation block we want to down-rank. For every other language
+ * `"""` is NOT a docstring opener — e.g. a JavaScript/TypeScript regex literal
+ * `/"""/` must not be mistaken for the start of a multi-line docstring (doing so
+ * would phantom-open a block and wrongly down-rank a *real* finding on the next
+ * line). Outside this set the three quote characters are handled as ordinary
+ * single-line string delimiters, which reset at the end of each line.
+ */
+const TRIPLE_QUOTE_LANGS = new Set(['python']);
+
+/**
+ * Decide whether the match on line `lineNumber` (1-based) sits *inside* a
+ * multi-line docstring (Python triple-quotes) or a C-style block comment that
+ * was opened on an earlier line. This is a deliberately small heuristic state
+ * machine: it scans every line strictly before the match line, toggling block
+ * state. It is the complement to `isCommentLine` (which only catches whole-line
+ * `//`/`#` comments) and to `runRegex({ skipCommentLines })` (same limitation).
  *
- * Known limits (documented on purpose): it keys off the line that *opens* the
- * block, so a pattern matched on the very same line that opens a triple quote is
- * not caught; and it does not model strings-containing-comment-tokens perfectly.
- * Those edge cases are rare for the target false positives (example config
- * inside a docstring, sample code inside a JSDoc/block comment).
+ * Two deliberate, *safe-direction* limitations (they only ever WITHHOLD a
+ * down-rank, never wrongly apply one, so they cannot demote a true positive):
+ *  - Same-line open: a pattern on the very line that *opens* a triple quote /
+ *    block is not treated as in-block (we scan lines strictly before), so it
+ *    keeps its default confidence.
+ *  - Close line: if the match line also *closes* the enclosing block (contains
+ *    the closing `"""`/`'''`/`*\/`), the payload may be real code after the
+ *    closer, so we conservatively return `false` (keep default confidence)
+ *    rather than risk down-ranking executable code on a block-closing line.
+ * Both err toward NOT down-ranking, preserving the "no collateral damage"
+ * property at the cost of occasionally missing a down-rank in these rare cases.
  */
 type ScanState =
   | 'normal'
@@ -92,6 +110,7 @@ export function isInDocstringOrBlockComment(
   language?: string,
 ): boolean {
   const hashIsComment = !(language != null && HASH_NOT_COMMENT.has(language));
+  const allowTripleQuote = language != null && TRIPLE_QUOTE_LANGS.has(language);
   let state: ScanState = 'normal';
   const end = Math.min(lineNumber - 1, lines.length);
 
@@ -110,8 +129,8 @@ export function isInDocstringOrBlockComment(
       const three = line.slice(k, k + 3);
       switch (state) {
         case 'normal':
-          if (three === '"""') { state = 'triple-d'; k += 3; continue; }
-          if (three === "'''") { state = 'triple-s'; k += 3; continue; }
+          if (allowTripleQuote && three === '"""') { state = 'triple-d'; k += 3; continue; }
+          if (allowTripleQuote && three === "'''") { state = 'triple-s'; k += 3; continue; }
           if (two === '/*') { state = 'block'; k += 2; continue; }
           if (two === '//') { state = 'line-comment'; k = line.length; continue; }
           if (ch === '#' && hashIsComment) { k = line.length; continue; }
@@ -146,7 +165,19 @@ export function isInDocstringOrBlockComment(
     }
   }
 
-  return state === 'block' || state === 'triple-d' || state === 'triple-s';
+  // Not inside a surviving multi-line construct → definitely not in a docstring.
+  if (state !== 'block' && state !== 'triple-d' && state !== 'triple-s') {
+    return false;
+  }
+  // We are inside a block/docstring entering the match line. If that same line
+  // also CLOSES the block (contains the matching closer), the matched payload
+  // may be real code after the closer, so conservatively withhold the
+  // down-rank (safe direction — never demote a possible true positive).
+  const matchLine = lines[lineNumber - 1] ?? '';
+  if (state === 'block' && matchLine.includes('*/')) return false;
+  if (state === 'triple-d' && matchLine.includes('"""')) return false;
+  if (state === 'triple-s' && matchLine.includes("'''")) return false;
+  return true;
 }
 
 /**

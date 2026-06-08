@@ -99,6 +99,32 @@ describe('isInDocstringOrBlockComment', () => {
     const lines = ['this.#secret = "x"; /*', 'eval(payload)', '*/', 'run()'];
     expect(isInDocstringOrBlockComment(lines, 2, 'javascript')).toBe(true);
   });
+
+  it('does not treat """ as a docstring opener outside Python (B1: JS/TS regex literal)', () => {
+    // `/"""/` is a JS/TS regex literal containing three quotes, NOT a Python
+    // docstring opener. Treating it as one phantom-opens a triple-quote block
+    // and wrongly down-ranks the real eval() on the next line.
+    const lines = ['const re = /"""/;', 'eval(userInput)'];
+    expect(isInDocstringOrBlockComment(lines, 2, 'javascript')).toBe(false);
+    expect(isInDocstringOrBlockComment(lines, 2, 'typescript')).toBe(false);
+    // Python, by contrast, DOES treat """ as a docstring opener.
+    expect(isInDocstringOrBlockComment(['"""', 'DEBUG = True'], 2, 'python')).toBe(true);
+  });
+
+  it('does not flag a docstring-closing line that also carries real code (B2: close-line)', () => {
+    // The docstring closes on line 3, but real code follows on the same line —
+    // the match could be that code, so we must not down-rank it.
+    const lines = ['"""doc', 'middle', '""" ; DEBUG = True'];
+    expect(isInDocstringOrBlockComment(lines, 3, 'python')).toBe(false);
+    // A purely-inside line (no closer) is still in the docstring.
+    expect(isInDocstringOrBlockComment(lines, 2, 'python')).toBe(true);
+  });
+
+  it('does not flag a block-comment-closing line that also carries real code (B2: close-line)', () => {
+    const lines = ['/*', ' * doc', '*/ eval(x)'];
+    expect(isInDocstringOrBlockComment(lines, 3, 'javascript')).toBe(false);
+    expect(isInDocstringOrBlockComment(lines, 2, 'javascript')).toBe(true);
+  });
 });
 
 describe('detectDowngradeSignals', () => {
@@ -170,5 +196,14 @@ describe('contextConfidence', () => {
   it('never raises confidence (downgrade-only)', () => {
     expect(contextConfidence('low', codeCtx, matchAtLine(1))).toBe('low');
     expect(contextConfidence('medium', codeCtx, matchAtLine(1))).toBe('medium');
+  });
+
+  it('does not down-rank a real JS finding sitting after a """ regex literal (B1)', () => {
+    // Regression: the phantom-docstring bug silently demoted this real eval().
+    const ctx = ctxOf('const re = /"""/;\neval(userInput)', {
+      filePath: 'src/run.js',
+      language: 'javascript',
+    });
+    expect(contextConfidence('high', ctx, matchAtLine(2))).toBe('high');
   });
 });

@@ -17,15 +17,16 @@
 //   * TP recall@medium+  = fraction of true positives still at >= medium after ①
 //                          (must stay high — ① must not bury real issues).
 //
-// Labels: author ground-truth in paper_data/aiq_bench/ground_truth.json, and —
-// if present — consensus labels from independent adjudication in
-// paper_data/aiq_consensus.json (written by the adjudication workflow). When the
-// consensus file exists its labels are authoritative and the published numbers
-// use it; the author column is shown alongside for the agreement rate.
+// Labels: author ground-truth in paper_data/aiq_bench/ground_truth.json. These
+// are author-assigned (single rater) — a stated limitation, since the same
+// author wrote the rules and fixtures. The harness also dumps a label-stripped
+// findings record and the author key so the SAME corpus can later be re-labelled
+// by independent third-party raters; that larger, independently-labelled study
+// is future work, NOT a claim of this script.
 //
 // Run from the repo root after `npm run build`:
 //   node scripts/ai-quality-precision-eval.mjs
-import { readFileSync, readdirSync, writeFileSync, existsSync } from 'node:fs';
+import { readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { scanPath } from '@vibeguard/analyzer-core';
 import { allRules } from '@vibeguard/rules';
@@ -67,7 +68,8 @@ const findings = scan.findings
     };
   });
 
-// Dump the blind record (no labels) for the adjudication workflow.
+// Dump a label-stripped record so the SAME corpus can later be re-labelled by
+// independent third-party raters (future work; not used for any number here).
 writeFileSync(
   'paper_data/aiq_findings.json',
   JSON.stringify(
@@ -76,7 +78,7 @@ writeFileSync(
     2,
   ) + '\n',
 );
-// Dump the author key separately so the harness can score consensus vs author.
+// Dump the author key separately for transparency / future agreement scoring.
 writeFileSync(
   'paper_data/aiq_authorkey.json',
   JSON.stringify(Object.fromEntries(findings.map((f) => [f.id, f.authorLabel])), null, 2) + '\n',
@@ -142,28 +144,13 @@ emit('# ③ — ai-quality precision & the effect of item ① (context-window co
 emit(`Corpus: \`${BENCH}\` — ${Object.keys(gt).length} files, ${findings.length} VG-QUAL-005..010 findings. ` +
   `Positives are genuine ship-blocking AI-trace patterns; hard-negatives are benign look-alikes.\n`);
 
-emit(report('Author labels (preliminary)', (f) => f.authorLabel));
-
-if (existsSync('paper_data/aiq_consensus.json')) {
-  const consensus = JSON.parse(readFileSync('paper_data/aiq_consensus.json', 'utf8'));
-  emit('\n---\n');
-  emit(report('Consensus labels (independent multi-judge adjudication)', (f) => consensus[f.id]?.label ?? f.authorLabel));
-  // agreement
-  const agree = findings.filter((f) => consensus[f.id]?.label === f.authorLabel).length;
-  emit(`\n- author↔consensus agreement: **${pct(agree / findings.length)}** (${agree}/${findings.length})`);
-  const disagreements = findings.filter((f) => consensus[f.id] && consensus[f.id].label !== f.authorLabel);
-  for (const d of disagreements) {
-    emit(`    DISAGREE ${d.id} ${d.file}:${d.line} ${d.ruleId} — author ${d.authorLabel}, consensus ${consensus[d.id].label}`);
-  }
-} else {
-  emit('\n> consensus labels not yet present (run the adjudication workflow → paper_data/aiq_consensus.json), showing author labels only.');
-}
+emit(report('ai-quality precision (author-labeled ground truth)', (f) => f.authorLabel));
 
 emit('\n---\n');
 emit('## Methodology & limitations (read before citing)\n');
-emit('- **Labels**: each finding was independently triaged by 3 blind judges (51 judgments total) that never saw the author labels or the corpus design. The published numbers use the majority consensus; author↔consensus agreement and unanimity are reported above.');
-emit('- **Raw precision reflects corpus composition, not a real-world base rate.** The corpus is deliberately ~50/50 positives/hard-negatives, so the ~47% raw figure is an artifact of construction — do **not** report it as "VibeGuard\'s ai-quality precision". The composition-robust, citable signals are: the **per-rule TP/FP behaviour**, the **+28.8 pt lift on the actionable (confidence≥medium) subset from item ①**, and the **100% retention of actionable true positives**.');
-emit('- **① helps context-localized FPs only.** The five demoted FPs sit in a test path, docstring, or comment. The residual FPs (idiomatic `@abstractmethod` `raise NotImplementedError`) are in executable code; ① cannot and should not move them — they bound precision and motivate future rule refinement (e.g. an abstract-method guard for VG-QUAL-005).');
-emit('- **Cases are relatively clear-cut by design** (hence 100% inter-judge unanimity). Ambiguous real-world code would lower both agreement and precision. Future work: a larger corpus sampled from real repositories with genuine third-party labels (this harness + schema are reusable as-is).');
+emit('- **Labels are author-assigned (single rater).** ground_truth.json was labelled by the tool author, who also wrote the rules and the fixtures, so this is a controlled demonstration, NOT an independent evaluation. Independent multi-rater labelling on a larger, real-world corpus is future work — the harness already emits a label-stripped findings record (aiq_findings.json) and the author key (aiq_authorkey.json) to make that re-labelling drop-in.');
+emit('- **Raw precision reflects corpus composition, not a real-world base rate.** The corpus is deliberately ~50/50 positives/hard-negatives, so the raw precision shown above is an artifact of construction — do **not** report it as "VibeGuard\'s ai-quality precision". The composition-robust, citable signals are the **per-rule TP/FP behaviour**, the **lift on the actionable (confidence≥medium) subset from item ①** (shown above), and the **retention of actionable true positives** (shown above).');
+emit('- **① helps context-localized FPs only.** The demoted FPs sit in a test path, docstring, or comment. The residual FPs (idiomatic `@abstractmethod` `raise NotImplementedError`) are in executable code; ① cannot and should not move them — they bound precision and motivate future rule refinement (e.g. an abstract-method guard for VG-QUAL-005).');
+emit('- **Cases are relatively clear-cut by design.** Ambiguous real-world code would lower precision. Future work: a larger corpus sampled from real repositories with genuine third-party labels (this harness + schema are reusable as-is).');
 
 writeFileSync('paper_data/ai_quality_precision.md', lines.join('\n') + '\n');
