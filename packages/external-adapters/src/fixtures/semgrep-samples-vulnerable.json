@@ -1,0 +1,946 @@
+{
+  "_fixtureProvenance": {
+    "kind": "TOOL-RECORDED, PROSE REDACTED — genuine structure, rule text removed",
+    "modified": true,
+    "modificationNotice": "MODIFIED FROM THE ORIGINAL. This file was produced by Semgrep 1.165.0 and has since been altered: every message and every metadata field consisting of prose written by the Semgrep rule authors has been replaced with a placeholder. Structure, rule identifiers, file paths, coordinates, severities, CWE identifiers and confidence are unmodified. The licensor's own notices (metadata.license, metadata.source) are retained unaltered on every entry, as the Semgrep Rules License requires.",
+    "whyRedacted": "The Semgrep Rules License v1.0 permits use \"only for your own internal business purposes\" and states that it \"does not allow you to distribute the rules, or to make them available to others as a service\", where \"the rules\" is defined to include \"any portion of those rules\". This repository is public and its composite GitHub Action copies this tree onto consumers' CI runners, so the recorded rule prose — 19 rules' messages and metadata, about two thirds of the original file by bytes — was redistribution. The structural facts below are measurements of a tool run, not rule text, and are what the adapter contract is actually tested against.",
+    "recordedBy": "Semgrep 1.165.0 (OSS engine), run over samples/vulnerable",
+    "sourceFile": "paper_data/semgrep_vulnerable.json",
+    "sourceSha256": "1c33dbebc3b2d6b62a994f875ba5134c95e56a91d87f3a7b006934535362c975",
+    "sourceBytes": 29106,
+    "sourceNote": "sourceSha256/sourceBytes describe the PRE-REDACTION recording and no longer hash this file. They are kept so the original can be re-derived: re-run Semgrep 1.165.0 over samples/vulnerable.",
+    "trimmedHow": [
+      "results[]: all 20 entries kept, in recorded order. Nothing was added or reordered. extra.message and extra.fix are REPLACED with a placeholder (see modificationNotice).",
+      "extra.metadata: kept category, confidence, cwe, impact, license, likelihood, source. Replaced with a placeholder: owasp, subcategory, technology, vulnerability_class. Removed: asvs, cwe2021-top25, cwe2022-top25, interfile, references, shortlink, source-rule-url.",
+      "dropped top-level \"time\" and \"profiling_results\": wall-clock timing noise that no parser reads and that would make the fixture non-reproducible to eyeball.",
+      "kept version / errors / paths / engine_requested / skipped_rules: every key a report parser is entitled to read.",
+      "added this _fixtureProvenance key as the file header (JSON has no comment syntax). Parsers ignore unknown top-level keys."
+    ],
+    "whyThisMatters": "The Semgrep adapter is tested against bytes a real tool produced, including the Windows backslash paths (samples\\vulnerable\\auth_bypass.py) and the check_id shapes the empirical RULE_FAMILIES mapping in scripts/sec-transfer-semgrep.mjs was derived from. A hand-written fixture would have had forward slashes and would have hidden the path-normalisation requirement entirely.",
+    "contrastWith": "src/fixtures/codeql-schema-derived.sarif is SCHEMA-DERIVED, NOT tool-recorded. Do not treat the two as equal evidence."
+  },
+  "version": "1.165.0",
+  "results": [
+    {
+      "check_id": "python.requests.security.disabled-cert-validation.disabled-cert-validation",
+      "path": "samples\\vulnerable\\auth_bypass.py",
+      "start": {
+        "line": 16,
+        "col": 12,
+        "offset": 341
+      },
+      "end": {
+        "line": 16,
+        "col": 68,
+        "offset": 397
+      },
+      "extra": {
+        "message": "[redacted — Semgrep-authored rule prose, removed for licensing. See extra.metadata.source]",
+        "fix": "[redacted — Semgrep-authored rule prose, removed for licensing. See extra.metadata.source]",
+        "metadata": {
+          "cwe": [
+            "CWE-295: Improper Certificate Validation"
+          ],
+          "owasp": [
+            "[redacted — Semgrep-authored rule prose, removed for licensing. See extra.metadata.source]"
+          ],
+          "category": "security",
+          "technology": [
+            "[redacted — Semgrep-authored rule prose, removed for licensing. See extra.metadata.source]"
+          ],
+          "subcategory": [
+            "[redacted — Semgrep-authored rule prose, removed for licensing. See extra.metadata.source]"
+          ],
+          "likelihood": "LOW",
+          "impact": "LOW",
+          "confidence": "LOW",
+          "license": "Semgrep Rules License v1.0. For more details, visit semgrep.dev/legal/rules-license",
+          "vulnerability_class": [
+            "[redacted — Semgrep-authored rule prose, removed for licensing. See extra.metadata.source]"
+          ],
+          "source": "https://semgrep.dev/r/python.requests.security.disabled-cert-validation.disabled-cert-validation"
+        },
+        "severity": "ERROR",
+        "fingerprint": "requires login",
+        "lines": "requires login",
+        "validation_state": "NO_VALIDATOR",
+        "engine_kind": "OSS"
+      }
+    },
+    {
+      "check_id": "python.lang.security.audit.subprocess-shell-true.subprocess-shell-true",
+      "path": "samples\\vulnerable\\command_injection.py",
+      "start": {
+        "line": 7,
+        "col": 50,
+        "offset": 156
+      },
+      "end": {
+        "line": 7,
+        "col": 54,
+        "offset": 160
+      },
+      "extra": {
+        "message": "[redacted — Semgrep-authored rule prose, removed for licensing. See extra.metadata.source]",
+        "fix": "[redacted — Semgrep-authored rule prose, removed for licensing. See extra.metadata.source]",
+        "metadata": {
+          "owasp": [
+            "[redacted — Semgrep-authored rule prose, removed for licensing. See extra.metadata.source]"
+          ],
+          "cwe": [
+            "CWE-78: Improper Neutralization of Special Elements used in an OS Command ('OS Command Injection')"
+          ],
+          "category": "security",
+          "technology": [
+            "[redacted — Semgrep-authored rule prose, removed for licensing. See extra.metadata.source]"
+          ],
+          "subcategory": [
+            "[redacted — Semgrep-authored rule prose, removed for licensing. See extra.metadata.source]"
+          ],
+          "likelihood": "HIGH",
+          "impact": "LOW",
+          "confidence": "MEDIUM",
+          "license": "Semgrep Rules License v1.0. For more details, visit semgrep.dev/legal/rules-license",
+          "vulnerability_class": [
+            "[redacted — Semgrep-authored rule prose, removed for licensing. See extra.metadata.source]"
+          ],
+          "source": "https://semgrep.dev/r/python.lang.security.audit.subprocess-shell-true.subprocess-shell-true"
+        },
+        "severity": "ERROR",
+        "fingerprint": "requires login",
+        "lines": "requires login",
+        "validation_state": "NO_VALIDATOR",
+        "engine_kind": "OSS"
+      }
+    },
+    {
+      "check_id": "python.django.security.audit.csrf-exempt.no-csrf-exempt",
+      "path": "samples\\vulnerable\\django_settings.py",
+      "start": {
+        "line": 16,
+        "col": 1,
+        "offset": 358
+      },
+      "end": {
+        "line": 19,
+        "col": 16,
+        "offset": 449
+      },
+      "extra": {
+        "message": "[redacted — Semgrep-authored rule prose, removed for licensing. See extra.metadata.source]",
+        "metadata": {
+          "cwe": [
+            "CWE-352: Cross-Site Request Forgery (CSRF)"
+          ],
+          "owasp": [
+            "[redacted — Semgrep-authored rule prose, removed for licensing. See extra.metadata.source]"
+          ],
+          "category": "security",
+          "technology": [
+            "[redacted — Semgrep-authored rule prose, removed for licensing. See extra.metadata.source]"
+          ],
+          "subcategory": [
+            "[redacted — Semgrep-authored rule prose, removed for licensing. See extra.metadata.source]"
+          ],
+          "likelihood": "LOW",
+          "impact": "MEDIUM",
+          "confidence": "LOW",
+          "license": "Semgrep Rules License v1.0. For more details, visit semgrep.dev/legal/rules-license",
+          "vulnerability_class": [
+            "[redacted — Semgrep-authored rule prose, removed for licensing. See extra.metadata.source]"
+          ],
+          "source": "https://semgrep.dev/r/python.django.security.audit.csrf-exempt.no-csrf-exempt"
+        },
+        "severity": "WARNING",
+        "fingerprint": "requires login",
+        "lines": "requires login",
+        "validation_state": "NO_VALIDATOR",
+        "engine_kind": "OSS"
+      }
+    },
+    {
+      "check_id": "javascript.express.security.audit.express-check-csurf-middleware-usage.express-check-csurf-middleware-usage",
+      "path": "samples\\vulnerable\\express_session.js",
+      "start": {
+        "line": 7,
+        "col": 7,
+        "offset": 199
+      },
+      "end": {
+        "line": 7,
+        "col": 22,
+        "offset": 214
+      },
+      "extra": {
+        "message": "[redacted — Semgrep-authored rule prose, removed for licensing. See extra.metadata.source]",
+        "metadata": {
+          "category": "security",
+          "cwe": [
+            "CWE-352: Cross-Site Request Forgery (CSRF)"
+          ],
+          "owasp": [
+            "[redacted — Semgrep-authored rule prose, removed for licensing. See extra.metadata.source]"
+          ],
+          "technology": [
+            "[redacted — Semgrep-authored rule prose, removed for licensing. See extra.metadata.source]"
+          ],
+          "subcategory": [
+            "[redacted — Semgrep-authored rule prose, removed for licensing. See extra.metadata.source]"
+          ],
+          "likelihood": "LOW",
+          "impact": "HIGH",
+          "confidence": "LOW",
+          "license": "Semgrep Rules License v1.0. For more details, visit semgrep.dev/legal/rules-license",
+          "vulnerability_class": [
+            "[redacted — Semgrep-authored rule prose, removed for licensing. See extra.metadata.source]"
+          ],
+          "source": "https://semgrep.dev/r/javascript.express.security.audit.express-check-csurf-middleware-usage.express-check-csurf-middleware-usage"
+        },
+        "severity": "INFO",
+        "fingerprint": "requires login",
+        "lines": "requires login",
+        "validation_state": "NO_VALIDATOR",
+        "engine_kind": "OSS"
+      }
+    },
+    {
+      "check_id": "javascript.express.security.audit.express-cookie-settings.express-cookie-session-default-name",
+      "path": "samples\\vulnerable\\express_session.js",
+      "start": {
+        "line": 14,
+        "col": 3,
+        "offset": 375
+      },
+      "end": {
+        "line": 17,
+        "col": 5,
+        "offset": 465
+      },
+      "extra": {
+        "message": "[redacted — Semgrep-authored rule prose, removed for licensing. See extra.metadata.source]",
+        "metadata": {
+          "cwe": [
+            "CWE-522: Insufficiently Protected Credentials"
+          ],
+          "owasp": [
+            "[redacted — Semgrep-authored rule prose, removed for licensing. See extra.metadata.source]"
+          ],
+          "category": "security",
+          "technology": [
+            "[redacted — Semgrep-authored rule prose, removed for licensing. See extra.metadata.source]"
+          ],
+          "subcategory": [
+            "[redacted — Semgrep-authored rule prose, removed for licensing. See extra.metadata.source]"
+          ],
+          "likelihood": "HIGH",
+          "impact": "LOW",
+          "confidence": "MEDIUM",
+          "license": "Semgrep Rules License v1.0. For more details, visit semgrep.dev/legal/rules-license",
+          "vulnerability_class": [
+            "[redacted — Semgrep-authored rule prose, removed for licensing. See extra.metadata.source]"
+          ],
+          "source": "https://semgrep.dev/r/javascript.express.security.audit.express-cookie-settings.express-cookie-session-default-name"
+        },
+        "severity": "WARNING",
+        "fingerprint": "requires login",
+        "lines": "requires login",
+        "validation_state": "NO_VALIDATOR",
+        "engine_kind": "OSS"
+      }
+    },
+    {
+      "check_id": "javascript.express.security.audit.express-cookie-settings.express-cookie-session-no-domain",
+      "path": "samples\\vulnerable\\express_session.js",
+      "start": {
+        "line": 14,
+        "col": 3,
+        "offset": 375
+      },
+      "end": {
+        "line": 17,
+        "col": 5,
+        "offset": 465
+      },
+      "extra": {
+        "message": "[redacted — Semgrep-authored rule prose, removed for licensing. See extra.metadata.source]",
+        "metadata": {
+          "cwe": [
+            "CWE-522: Insufficiently Protected Credentials"
+          ],
+          "owasp": [
+            "[redacted — Semgrep-authored rule prose, removed for licensing. See extra.metadata.source]"
+          ],
+          "category": "security",
+          "technology": [
+            "[redacted — Semgrep-authored rule prose, removed for licensing. See extra.metadata.source]"
+          ],
+          "subcategory": [
+            "[redacted — Semgrep-authored rule prose, removed for licensing. See extra.metadata.source]"
+          ],
+          "likelihood": "HIGH",
+          "impact": "LOW",
+          "confidence": "MEDIUM",
+          "license": "Semgrep Rules License v1.0. For more details, visit semgrep.dev/legal/rules-license",
+          "vulnerability_class": [
+            "[redacted — Semgrep-authored rule prose, removed for licensing. See extra.metadata.source]"
+          ],
+          "source": "https://semgrep.dev/r/javascript.express.security.audit.express-cookie-settings.express-cookie-session-no-domain"
+        },
+        "severity": "WARNING",
+        "fingerprint": "requires login",
+        "lines": "requires login",
+        "validation_state": "NO_VALIDATOR",
+        "engine_kind": "OSS"
+      }
+    },
+    {
+      "check_id": "javascript.express.security.audit.express-cookie-settings.express-cookie-session-no-expires",
+      "path": "samples\\vulnerable\\express_session.js",
+      "start": {
+        "line": 14,
+        "col": 3,
+        "offset": 375
+      },
+      "end": {
+        "line": 17,
+        "col": 5,
+        "offset": 465
+      },
+      "extra": {
+        "message": "[redacted — Semgrep-authored rule prose, removed for licensing. See extra.metadata.source]",
+        "metadata": {
+          "cwe": [
+            "CWE-522: Insufficiently Protected Credentials"
+          ],
+          "owasp": [
+            "[redacted — Semgrep-authored rule prose, removed for licensing. See extra.metadata.source]"
+          ],
+          "category": "security",
+          "technology": [
+            "[redacted — Semgrep-authored rule prose, removed for licensing. See extra.metadata.source]"
+          ],
+          "subcategory": [
+            "[redacted — Semgrep-authored rule prose, removed for licensing. See extra.metadata.source]"
+          ],
+          "likelihood": "HIGH",
+          "impact": "LOW",
+          "confidence": "MEDIUM",
+          "license": "Semgrep Rules License v1.0. For more details, visit semgrep.dev/legal/rules-license",
+          "vulnerability_class": [
+            "[redacted — Semgrep-authored rule prose, removed for licensing. See extra.metadata.source]"
+          ],
+          "source": "https://semgrep.dev/r/javascript.express.security.audit.express-cookie-settings.express-cookie-session-no-expires"
+        },
+        "severity": "WARNING",
+        "fingerprint": "requires login",
+        "lines": "requires login",
+        "validation_state": "NO_VALIDATOR",
+        "engine_kind": "OSS"
+      }
+    },
+    {
+      "check_id": "javascript.express.security.audit.express-cookie-settings.express-cookie-session-no-httponly",
+      "path": "samples\\vulnerable\\express_session.js",
+      "start": {
+        "line": 14,
+        "col": 3,
+        "offset": 375
+      },
+      "end": {
+        "line": 17,
+        "col": 5,
+        "offset": 465
+      },
+      "extra": {
+        "message": "[redacted — Semgrep-authored rule prose, removed for licensing. See extra.metadata.source]",
+        "metadata": {
+          "cwe": [
+            "CWE-522: Insufficiently Protected Credentials"
+          ],
+          "owasp": [
+            "[redacted — Semgrep-authored rule prose, removed for licensing. See extra.metadata.source]"
+          ],
+          "category": "security",
+          "technology": [
+            "[redacted — Semgrep-authored rule prose, removed for licensing. See extra.metadata.source]"
+          ],
+          "subcategory": [
+            "[redacted — Semgrep-authored rule prose, removed for licensing. See extra.metadata.source]"
+          ],
+          "likelihood": "HIGH",
+          "impact": "LOW",
+          "confidence": "MEDIUM",
+          "license": "Semgrep Rules License v1.0. For more details, visit semgrep.dev/legal/rules-license",
+          "vulnerability_class": [
+            "[redacted — Semgrep-authored rule prose, removed for licensing. See extra.metadata.source]"
+          ],
+          "source": "https://semgrep.dev/r/javascript.express.security.audit.express-cookie-settings.express-cookie-session-no-httponly"
+        },
+        "severity": "WARNING",
+        "fingerprint": "requires login",
+        "lines": "requires login",
+        "validation_state": "NO_VALIDATOR",
+        "engine_kind": "OSS"
+      }
+    },
+    {
+      "check_id": "javascript.express.security.audit.express-cookie-settings.express-cookie-session-no-path",
+      "path": "samples\\vulnerable\\express_session.js",
+      "start": {
+        "line": 14,
+        "col": 3,
+        "offset": 375
+      },
+      "end": {
+        "line": 17,
+        "col": 5,
+        "offset": 465
+      },
+      "extra": {
+        "message": "[redacted — Semgrep-authored rule prose, removed for licensing. See extra.metadata.source]",
+        "metadata": {
+          "cwe": [
+            "CWE-522: Insufficiently Protected Credentials"
+          ],
+          "owasp": [
+            "[redacted — Semgrep-authored rule prose, removed for licensing. See extra.metadata.source]"
+          ],
+          "category": "security",
+          "technology": [
+            "[redacted — Semgrep-authored rule prose, removed for licensing. See extra.metadata.source]"
+          ],
+          "subcategory": [
+            "[redacted — Semgrep-authored rule prose, removed for licensing. See extra.metadata.source]"
+          ],
+          "likelihood": "HIGH",
+          "impact": "LOW",
+          "confidence": "MEDIUM",
+          "license": "Semgrep Rules License v1.0. For more details, visit semgrep.dev/legal/rules-license",
+          "vulnerability_class": [
+            "[redacted — Semgrep-authored rule prose, removed for licensing. See extra.metadata.source]"
+          ],
+          "source": "https://semgrep.dev/r/javascript.express.security.audit.express-cookie-settings.express-cookie-session-no-path"
+        },
+        "severity": "WARNING",
+        "fingerprint": "requires login",
+        "lines": "requires login",
+        "validation_state": "NO_VALIDATOR",
+        "engine_kind": "OSS"
+      }
+    },
+    {
+      "check_id": "javascript.express.security.audit.express-cookie-settings.express-cookie-session-no-secure",
+      "path": "samples\\vulnerable\\express_session.js",
+      "start": {
+        "line": 14,
+        "col": 3,
+        "offset": 375
+      },
+      "end": {
+        "line": 17,
+        "col": 5,
+        "offset": 465
+      },
+      "extra": {
+        "message": "[redacted — Semgrep-authored rule prose, removed for licensing. See extra.metadata.source]",
+        "metadata": {
+          "cwe": [
+            "CWE-522: Insufficiently Protected Credentials"
+          ],
+          "owasp": [
+            "[redacted — Semgrep-authored rule prose, removed for licensing. See extra.metadata.source]"
+          ],
+          "category": "security",
+          "technology": [
+            "[redacted — Semgrep-authored rule prose, removed for licensing. See extra.metadata.source]"
+          ],
+          "subcategory": [
+            "[redacted — Semgrep-authored rule prose, removed for licensing. See extra.metadata.source]"
+          ],
+          "likelihood": "HIGH",
+          "impact": "LOW",
+          "confidence": "MEDIUM",
+          "license": "Semgrep Rules License v1.0. For more details, visit semgrep.dev/legal/rules-license",
+          "vulnerability_class": [
+            "[redacted — Semgrep-authored rule prose, removed for licensing. See extra.metadata.source]"
+          ],
+          "source": "https://semgrep.dev/r/javascript.express.security.audit.express-cookie-settings.express-cookie-session-no-secure"
+        },
+        "severity": "WARNING",
+        "fingerprint": "requires login",
+        "lines": "requires login",
+        "validation_state": "NO_VALIDATOR",
+        "engine_kind": "OSS"
+      }
+    },
+    {
+      "check_id": "javascript.express.security.audit.express-session-hardcoded-secret.express-session-hardcoded-secret",
+      "path": "samples\\vulnerable\\express_session.js",
+      "start": {
+        "line": 15,
+        "col": 5,
+        "offset": 390
+      },
+      "end": {
+        "line": 15,
+        "col": 24,
+        "offset": 409
+      },
+      "extra": {
+        "message": "[redacted — Semgrep-authored rule prose, removed for licensing. See extra.metadata.source]",
+        "metadata": {
+          "cwe": [
+            "CWE-798: Use of Hard-coded Credentials"
+          ],
+          "owasp": [
+            "[redacted — Semgrep-authored rule prose, removed for licensing. See extra.metadata.source]"
+          ],
+          "category": "security",
+          "technology": [
+            "[redacted — Semgrep-authored rule prose, removed for licensing. See extra.metadata.source]"
+          ],
+          "subcategory": [
+            "[redacted — Semgrep-authored rule prose, removed for licensing. See extra.metadata.source]"
+          ],
+          "likelihood": "HIGH",
+          "impact": "HIGH",
+          "confidence": "HIGH",
+          "license": "Semgrep Rules License v1.0. For more details, visit semgrep.dev/legal/rules-license",
+          "vulnerability_class": [
+            "[redacted — Semgrep-authored rule prose, removed for licensing. See extra.metadata.source]"
+          ],
+          "source": "https://semgrep.dev/r/javascript.express.security.audit.express-session-hardcoded-secret.express-session-hardcoded-secret"
+        },
+        "severity": "WARNING",
+        "fingerprint": "requires login",
+        "lines": "requires login",
+        "validation_state": "NO_VALIDATOR",
+        "engine_kind": "OSS"
+      }
+    },
+    {
+      "check_id": "python.flask.security.audit.app-run-param-config.avoid_app_run_with_bad_host",
+      "path": "samples\\vulnerable\\flask_app.py",
+      "start": {
+        "line": 19,
+        "col": 5,
+        "offset": 405
+      },
+      "end": {
+        "line": 19,
+        "col": 40,
+        "offset": 440
+      },
+      "extra": {
+        "message": "[redacted — Semgrep-authored rule prose, removed for licensing. See extra.metadata.source]",
+        "metadata": {
+          "cwe": [
+            "CWE-668: Exposure of Resource to Wrong Sphere"
+          ],
+          "owasp": [
+            "[redacted — Semgrep-authored rule prose, removed for licensing. See extra.metadata.source]"
+          ],
+          "category": "security",
+          "technology": [
+            "[redacted — Semgrep-authored rule prose, removed for licensing. See extra.metadata.source]"
+          ],
+          "subcategory": [
+            "[redacted — Semgrep-authored rule prose, removed for licensing. See extra.metadata.source]"
+          ],
+          "likelihood": "HIGH",
+          "impact": "MEDIUM",
+          "confidence": "HIGH",
+          "license": "Semgrep Rules License v1.0. For more details, visit semgrep.dev/legal/rules-license",
+          "vulnerability_class": [
+            "[redacted — Semgrep-authored rule prose, removed for licensing. See extra.metadata.source]"
+          ],
+          "source": "https://semgrep.dev/r/python.flask.security.audit.app-run-param-config.avoid_app_run_with_bad_host"
+        },
+        "severity": "WARNING",
+        "fingerprint": "requires login",
+        "lines": "requires login",
+        "validation_state": "NO_VALIDATOR",
+        "engine_kind": "OSS"
+      }
+    },
+    {
+      "check_id": "python.flask.security.audit.debug-enabled.debug-enabled",
+      "path": "samples\\vulnerable\\flask_app.py",
+      "start": {
+        "line": 19,
+        "col": 5,
+        "offset": 405
+      },
+      "end": {
+        "line": 19,
+        "col": 40,
+        "offset": 440
+      },
+      "extra": {
+        "message": "[redacted — Semgrep-authored rule prose, removed for licensing. See extra.metadata.source]",
+        "metadata": {
+          "cwe": [
+            "CWE-489: Active Debug Code"
+          ],
+          "owasp": "[redacted — Semgrep-authored rule prose, removed for licensing. See extra.metadata.source]",
+          "category": "security",
+          "technology": [
+            "[redacted — Semgrep-authored rule prose, removed for licensing. See extra.metadata.source]"
+          ],
+          "subcategory": [
+            "[redacted — Semgrep-authored rule prose, removed for licensing. See extra.metadata.source]"
+          ],
+          "likelihood": "HIGH",
+          "impact": "MEDIUM",
+          "confidence": "HIGH",
+          "license": "Semgrep Rules License v1.0. For more details, visit semgrep.dev/legal/rules-license",
+          "vulnerability_class": [
+            "[redacted — Semgrep-authored rule prose, removed for licensing. See extra.metadata.source]"
+          ],
+          "source": "https://semgrep.dev/r/python.flask.security.audit.debug-enabled.debug-enabled"
+        },
+        "severity": "WARNING",
+        "fingerprint": "requires login",
+        "lines": "requires login",
+        "validation_state": "NO_VALIDATOR",
+        "engine_kind": "OSS"
+      }
+    },
+    {
+      "check_id": "typescript.react.security.react-insecure-request.react-insecure-request",
+      "path": "samples\\vulnerable\\secrets.js",
+      "start": {
+        "line": 12,
+        "col": 3,
+        "offset": 306
+      },
+      "end": {
+        "line": 12,
+        "col": 40,
+        "offset": 343
+      },
+      "extra": {
+        "message": "[redacted — Semgrep-authored rule prose, removed for licensing. See extra.metadata.source]",
+        "metadata": {
+          "owasp": [
+            "[redacted — Semgrep-authored rule prose, removed for licensing. See extra.metadata.source]"
+          ],
+          "cwe": [
+            "CWE-319: Cleartext Transmission of Sensitive Information"
+          ],
+          "category": "security",
+          "technology": [
+            "[redacted — Semgrep-authored rule prose, removed for licensing. See extra.metadata.source]"
+          ],
+          "subcategory": [
+            "[redacted — Semgrep-authored rule prose, removed for licensing. See extra.metadata.source]"
+          ],
+          "likelihood": "LOW",
+          "impact": "MEDIUM",
+          "confidence": "MEDIUM",
+          "license": "Semgrep Rules License v1.0. For more details, visit semgrep.dev/legal/rules-license",
+          "vulnerability_class": [
+            "[redacted — Semgrep-authored rule prose, removed for licensing. See extra.metadata.source]"
+          ],
+          "source": "https://semgrep.dev/r/typescript.react.security.react-insecure-request.react-insecure-request"
+        },
+        "severity": "ERROR",
+        "fingerprint": "requires login",
+        "lines": "requires login",
+        "validation_state": "NO_VALIDATOR",
+        "engine_kind": "OSS"
+      }
+    },
+    {
+      "check_id": "python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query",
+      "path": "samples\\vulnerable\\sql_injection.py",
+      "start": {
+        "line": 8,
+        "col": 5,
+        "offset": 197
+      },
+      "end": {
+        "line": 8,
+        "col": 23,
+        "offset": 215
+      },
+      "extra": {
+        "message": "[redacted — Semgrep-authored rule prose, removed for licensing. See extra.metadata.source]",
+        "metadata": {
+          "cwe": [
+            "CWE-89: Improper Neutralization of Special Elements used in an SQL Command ('SQL Injection')"
+          ],
+          "owasp": [
+            "[redacted — Semgrep-authored rule prose, removed for licensing. See extra.metadata.source]"
+          ],
+          "category": "security",
+          "technology": [
+            "[redacted — Semgrep-authored rule prose, removed for licensing. See extra.metadata.source]"
+          ],
+          "subcategory": [
+            "[redacted — Semgrep-authored rule prose, removed for licensing. See extra.metadata.source]"
+          ],
+          "likelihood": "LOW",
+          "impact": "HIGH",
+          "confidence": "LOW",
+          "license": "Semgrep Rules License v1.0. For more details, visit semgrep.dev/legal/rules-license",
+          "vulnerability_class": [
+            "[redacted — Semgrep-authored rule prose, removed for licensing. See extra.metadata.source]"
+          ],
+          "source": "https://semgrep.dev/r/python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query"
+        },
+        "severity": "ERROR",
+        "fingerprint": "requires login",
+        "lines": "requires login",
+        "validation_state": "NO_VALIDATOR",
+        "engine_kind": "OSS"
+      }
+    },
+    {
+      "check_id": "python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query",
+      "path": "samples\\vulnerable\\sql_injection.py",
+      "start": {
+        "line": 14,
+        "col": 5,
+        "offset": 309
+      },
+      "end": {
+        "line": 14,
+        "col": 58,
+        "offset": 362
+      },
+      "extra": {
+        "message": "[redacted — Semgrep-authored rule prose, removed for licensing. See extra.metadata.source]",
+        "metadata": {
+          "cwe": [
+            "CWE-89: Improper Neutralization of Special Elements used in an SQL Command ('SQL Injection')"
+          ],
+          "owasp": [
+            "[redacted — Semgrep-authored rule prose, removed for licensing. See extra.metadata.source]"
+          ],
+          "category": "security",
+          "technology": [
+            "[redacted — Semgrep-authored rule prose, removed for licensing. See extra.metadata.source]"
+          ],
+          "subcategory": [
+            "[redacted — Semgrep-authored rule prose, removed for licensing. See extra.metadata.source]"
+          ],
+          "likelihood": "LOW",
+          "impact": "HIGH",
+          "confidence": "LOW",
+          "license": "Semgrep Rules License v1.0. For more details, visit semgrep.dev/legal/rules-license",
+          "vulnerability_class": [
+            "[redacted — Semgrep-authored rule prose, removed for licensing. See extra.metadata.source]"
+          ],
+          "source": "https://semgrep.dev/r/python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query"
+        },
+        "severity": "ERROR",
+        "fingerprint": "requires login",
+        "lines": "requires login",
+        "validation_state": "NO_VALIDATOR",
+        "engine_kind": "OSS"
+      }
+    },
+    {
+      "check_id": "ruby.lang.security.weak-hashes-md5.weak-hashes-md5",
+      "path": "samples\\vulnerable\\weak_crypto.rb",
+      "start": {
+        "line": 7,
+        "col": 3,
+        "offset": 158
+      },
+      "end": {
+        "line": 7,
+        "col": 33,
+        "offset": 188
+      },
+      "extra": {
+        "message": "[redacted — Semgrep-authored rule prose, removed for licensing. See extra.metadata.source]",
+        "metadata": {
+          "cwe": [
+            "CWE-328: Use of Weak Hash"
+          ],
+          "category": "security",
+          "technology": [
+            "[redacted — Semgrep-authored rule prose, removed for licensing. See extra.metadata.source]"
+          ],
+          "owasp": [
+            "[redacted — Semgrep-authored rule prose, removed for licensing. See extra.metadata.source]"
+          ],
+          "subcategory": [
+            "[redacted — Semgrep-authored rule prose, removed for licensing. See extra.metadata.source]"
+          ],
+          "likelihood": "LOW",
+          "impact": "HIGH",
+          "confidence": "MEDIUM",
+          "license": "Semgrep Rules License v1.0. For more details, visit semgrep.dev/legal/rules-license",
+          "vulnerability_class": [
+            "[redacted — Semgrep-authored rule prose, removed for licensing. See extra.metadata.source]"
+          ],
+          "source": "https://semgrep.dev/r/ruby.lang.security.weak-hashes-md5.weak-hashes-md5"
+        },
+        "severity": "WARNING",
+        "fingerprint": "requires login",
+        "lines": "requires login",
+        "validation_state": "NO_VALIDATOR",
+        "engine_kind": "OSS"
+      }
+    },
+    {
+      "check_id": "ruby.lang.security.weak-hashes-sha1.weak-hashes-sha1",
+      "path": "samples\\vulnerable\\weak_crypto.rb",
+      "start": {
+        "line": 12,
+        "col": 3,
+        "offset": 278
+      },
+      "end": {
+        "line": 12,
+        "col": 25,
+        "offset": 300
+      },
+      "extra": {
+        "message": "[redacted — Semgrep-authored rule prose, removed for licensing. See extra.metadata.source]",
+        "metadata": {
+          "cwe": [
+            "CWE-328: Use of Weak Hash"
+          ],
+          "category": "security",
+          "technology": [
+            "[redacted — Semgrep-authored rule prose, removed for licensing. See extra.metadata.source]"
+          ],
+          "owasp": [
+            "[redacted — Semgrep-authored rule prose, removed for licensing. See extra.metadata.source]"
+          ],
+          "subcategory": [
+            "[redacted — Semgrep-authored rule prose, removed for licensing. See extra.metadata.source]"
+          ],
+          "likelihood": "LOW",
+          "impact": "MEDIUM",
+          "confidence": "MEDIUM",
+          "license": "Semgrep Rules License v1.0. For more details, visit semgrep.dev/legal/rules-license",
+          "vulnerability_class": [
+            "[redacted — Semgrep-authored rule prose, removed for licensing. See extra.metadata.source]"
+          ],
+          "source": "https://semgrep.dev/r/ruby.lang.security.weak-hashes-sha1.weak-hashes-sha1"
+        },
+        "severity": "WARNING",
+        "fingerprint": "requires login",
+        "lines": "requires login",
+        "validation_state": "NO_VALIDATOR",
+        "engine_kind": "OSS"
+      }
+    },
+    {
+      "check_id": "go.lang.security.audit.crypto.math_random.math-random-used",
+      "path": "samples\\vulnerable\\weak_random.go",
+      "start": {
+        "line": 6,
+        "col": 3,
+        "offset": 106
+      },
+      "end": {
+        "line": 6,
+        "col": 12,
+        "offset": 115
+      },
+      "extra": {
+        "message": "[redacted — Semgrep-authored rule prose, removed for licensing. See extra.metadata.source]",
+        "fix": "[redacted — Semgrep-authored rule prose, removed for licensing. See extra.metadata.source]",
+        "metadata": {
+          "cwe": [
+            "CWE-338: Use of Cryptographically Weak Pseudo-Random Number Generator (PRNG)"
+          ],
+          "owasp": [
+            "[redacted — Semgrep-authored rule prose, removed for licensing. See extra.metadata.source]"
+          ],
+          "category": "security",
+          "technology": [
+            "[redacted — Semgrep-authored rule prose, removed for licensing. See extra.metadata.source]"
+          ],
+          "confidence": "MEDIUM",
+          "subcategory": [
+            "[redacted — Semgrep-authored rule prose, removed for licensing. See extra.metadata.source]"
+          ],
+          "likelihood": "MEDIUM",
+          "impact": "MEDIUM",
+          "license": "Semgrep Rules License v1.0. For more details, visit semgrep.dev/legal/rules-license",
+          "vulnerability_class": [
+            "[redacted — Semgrep-authored rule prose, removed for licensing. See extra.metadata.source]"
+          ],
+          "source": "https://semgrep.dev/r/go.lang.security.audit.crypto.math_random.math-random-used"
+        },
+        "severity": "WARNING",
+        "fingerprint": "requires login",
+        "lines": "requires login",
+        "validation_state": "NO_VALIDATOR",
+        "engine_kind": "OSS"
+      }
+    },
+    {
+      "check_id": "javascript.browser.security.eval-detected.eval-detected",
+      "path": "samples\\vulnerable\\xss.js",
+      "start": {
+        "line": 9,
+        "col": 10,
+        "offset": 239
+      },
+      "end": {
+        "line": 9,
+        "col": 21,
+        "offset": 250
+      },
+      "extra": {
+        "message": "[redacted — Semgrep-authored rule prose, removed for licensing. See extra.metadata.source]",
+        "metadata": {
+          "cwe": [
+            "CWE-95: Improper Neutralization of Directives in Dynamically Evaluated Code ('Eval Injection')"
+          ],
+          "owasp": [
+            "[redacted — Semgrep-authored rule prose, removed for licensing. See extra.metadata.source]"
+          ],
+          "category": "security",
+          "technology": [
+            "[redacted — Semgrep-authored rule prose, removed for licensing. See extra.metadata.source]"
+          ],
+          "subcategory": [
+            "[redacted — Semgrep-authored rule prose, removed for licensing. See extra.metadata.source]"
+          ],
+          "likelihood": "LOW",
+          "impact": "MEDIUM",
+          "confidence": "LOW",
+          "license": "Semgrep Rules License v1.0. For more details, visit semgrep.dev/legal/rules-license",
+          "vulnerability_class": [
+            "[redacted — Semgrep-authored rule prose, removed for licensing. See extra.metadata.source]"
+          ],
+          "source": "https://semgrep.dev/r/javascript.browser.security.eval-detected.eval-detected"
+        },
+        "severity": "WARNING",
+        "fingerprint": "requires login",
+        "lines": "requires login",
+        "validation_state": "NO_VALIDATOR",
+        "engine_kind": "OSS"
+      }
+    }
+  ],
+  "errors": [],
+  "paths": {
+    "scanned": [
+      "samples\\vulnerable\\ai_artifacts.js",
+      "samples\\vulnerable\\auth_bypass.py",
+      "samples\\vulnerable\\command_injection.py",
+      "samples\\vulnerable\\django_settings.py",
+      "samples\\vulnerable\\express_session.js",
+      "samples\\vulnerable\\flask_app.py",
+      "samples\\vulnerable\\secrets.js",
+      "samples\\vulnerable\\sql_injection.py",
+      "samples\\vulnerable\\weak_crypto.cs",
+      "samples\\vulnerable\\weak_crypto.php",
+      "samples\\vulnerable\\weak_crypto.rb",
+      "samples\\vulnerable\\weak_random.go",
+      "samples\\vulnerable\\xss.js"
+    ]
+  },
+  "engine_requested": "OSS",
+  "skipped_rules": []
+}

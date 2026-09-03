@@ -2,7 +2,7 @@
   "name": "vibeguard-aicoding",
   "displayName": "VibeGuard AICoding",
   "description": "Security diagnostics for AI-generated code, on save and on demand.",
-  "version": "0.1.3",
+  "version": "0.3.6",
   "publisher": "yutakondo",
   "icon": "icon.png",
   "license": "MIT",
@@ -91,17 +91,32 @@
       {
         "id": "vibeguard.ok",
         "description": "Color for the OK / no-findings indicator.",
-        "defaults": { "dark": "#2e7d32", "light": "#2e7d32", "highContrast": "#2e7d32", "highContrastLight": "#2e7d32" }
+        "defaults": {
+          "dark": "#2e7d32",
+          "light": "#2e7d32",
+          "highContrast": "#2e7d32",
+          "highContrastLight": "#2e7d32"
+        }
       },
       {
         "id": "vibeguard.issue",
         "description": "Color for low / medium severity findings.",
-        "defaults": { "dark": "#856404", "light": "#856404", "highContrast": "#856404", "highContrastLight": "#856404" }
+        "defaults": {
+          "dark": "#856404",
+          "light": "#856404",
+          "highContrast": "#856404",
+          "highContrastLight": "#856404"
+        }
       },
       {
         "id": "vibeguard.critical",
         "description": "Color for high / critical severity findings.",
-        "defaults": { "dark": "#c62828", "light": "#c62828", "highContrast": "#c62828", "highContrastLight": "#c62828" }
+        "defaults": {
+          "dark": "#c62828",
+          "light": "#c62828",
+          "highContrast": "#c62828",
+          "highContrastLight": "#c62828"
+        }
       }
     ],
     "configuration": {
@@ -128,19 +143,20 @@
     "build": "esbuild src/extension.ts --bundle --platform=node --target=node18 --external:vscode --format=cjs --outfile=dist/extension.js",
     "watch": "esbuild src/extension.ts --bundle --platform=node --target=node18 --external:vscode --format=cjs --outfile=dist/extension.js --watch",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "clean": "rimraf dist"
+    "clean": "rimraf dist",
+    "test": "vitest run"
   },
   "dependencies": {
-    "@vibeguard/analyzer-core": "0.1.3",
-    "@vibeguard/findings-schema": "0.1.3",
-    "@vibeguard/sarif-adapter": "0.1.3"
+    "@vibeguard/analyzer-core": "0.3.6",
+    "@vibeguard/findings-schema": "0.3.6",
+    "@vibeguard/sarif-adapter": "0.3.6"
   },
   "devDependencies": {
     "@types/node": "^20.19.43",
     "@types/vscode": "^1.120.0",
     "@vscode/vsce": "^3.9.2",
-    "esbuild": "^0.28.1",
-    "ovsx": "^1.0.1",
+    "esbuild": "^0.28.2",
+    "ovsx": "^1.1.1",
     "typescript": "^5.4.5"
   }
 }

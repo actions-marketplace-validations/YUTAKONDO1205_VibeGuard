@@ -1,12 +1,12 @@
-import type { Confidence } from '@vibeguard/findings-schema';
+import type { Confidence, DowngradeSignal, Severity } from '@vibeguard/findings-schema';
 import type { RuleContext, RuleMatch } from './rule-types.js';
-import { isCommentLine } from './matcher-utils.js';
+import { getLineCommentSpec, isCommentLine, lineCommentStartsAt } from './matcher-utils.js';
 
 /**
- * Context-window confidence adjustment (paper item ①).
+ * Context-window confidence adjustment (evaluation E6).
  *
  * VibeGuard's findings carry two orthogonal axes: `severity` (impact if real,
- * static per rule) and `confidence` (certainty the match is real). DESIGN.ja.md
+ * static per rule) and `confidence` (certainty the match is real). docs/DESIGN.ja.md
  * §13.3 defines confidence as the false-positive control knob — Medium means
  * "pattern matched but the surrounding context may be safe", Low means
  * "heuristic, needs human review". Until now no rule ever set a per-match
@@ -27,13 +27,87 @@ import { isCommentLine } from './matcher-utils.js';
  * uniformly. Rules whose detection signal *is* the comment itself
  * (VG-AUTH-002 "TODO near security", VG-QUAL-009 "not for production") opt out
  * with `contextConfidence: 'off'`; for them a comment must not lower confidence.
+ *
+ * ## The severity gate: downgrades are utility, not a security verdict
+ *
+ * A false-positive filter is also an attack surface. Someone who controls the
+ * file can wrap a *real* vulnerability in a docstring, or park it under a
+ * `tests/` path, and ride the downgrade below whatever confidence threshold the
+ * consumer acts on — hiding the finding in plain sight without touching the
+ * detection rule at all. The defence is a policy statement rather than a better
+ * heuristic, because any heuristic sharp enough to see through the disguise is
+ * also sharp enough to be fooled by the next one: **a context downgrade is a
+ * noise-reduction convenience and must never decide a security question.**
+ * `SEVERITY_CONFIDENCE_FLOOR` therefore bounds how far this module may lower a
+ * finding whose *impact* would be severe if real, no matter how convincing the
+ * surrounding context looks. Severity is static per rule and attacker-controlled
+ * text cannot move it, which is exactly what makes it usable as the bound.
+ *
+ * The bound covers `medium` too, and for the same reason: measurement showed the
+ * un-floored `medium` band letting a wrapped finding fall all the way to `low`,
+ * i.e. below the default actionable threshold, so the disguise worked there
+ * exactly as well as it would have on `high` without the gate. What differs is
+ * only how much room the bound leaves, not whether the bound exists — see the
+ * per-severity table below.
+ *
+ * The resolved rank is:
+ *
+ *     effectiveRank = max( RANK[base] - Σsteps, 0, min( RANK[base], FLOOR_RANK[severity] ) )
+ *
+ * The inner `min(RANK[base], …)` is load-bearing. Read the floor loosely as
+ * "clamp confidence up to at least `high`" and you break the downgrade-only
+ * invariant the whole module rests on: a `critical` rule whose
+ * `defaultConfidence` is `medium`, matched in a test file, would be RAISED
+ * medium → high — this module would start manufacturing precisely the false
+ * `high`-confidence findings the policy above forbids. The floor is a *bound on
+ * downgrading*, never a promotion device; clamping it to `base` first makes
+ * `result <= base` hold by construction, for every input, no case analysis
+ * needed.
+ *
+ * A consequence worth naming: `RANK['high'] = 2` is the top rung of the ladder,
+ * so `min(RANK[base], 2) === RANK[base]` for every `base`. `floor: 'high'` is
+ * therefore *exactly equivalent* to "critical/high findings take no context
+ * downgrade at all" — the two ways of stating the gate ("clamp at high" and
+ * "don't downgrade") collapse into the same function. `null` means no gate, i.e.
+ * the item ① behaviour above, unchanged.
+ *
+ * `floor: 'medium'` is the genuinely intermediate case, and the difference from
+ * `'high'` matters when reading the code: it is NOT "no downgrade". `medium` sits
+ * one rung below the top, so a `high`-confidence finding still loses a rung to
+ * context — the downgrade remains visible and still quiets triage — but the
+ * result cannot cross below `medium`, the default actionable threshold. The gate
+ * bounds how far the disguise carries; it does not switch the downgrade off.
+ *
+ * ## Precedence: `off` short-circuits before the gate
+ *
+ * `mode === 'off'` returns `base` and never reaches the gate. The two are not
+ * competing axes: `off` is strictly stronger, meaning "zero downgrade at any
+ * severity", which already satisfies every possible floor. For VG-AUTH-002 /
+ * VG-QUAL-009 the comment IS the detection signal, so a comment must not lower
+ * confidence whatever the rule's severity happens to be.
+ *
+ * ## `m.confidence` bypasses this module entirely
+ *
+ * The analyzer resolves `m.confidence ?? contextConfidence(...)`, so a rule that
+ * returns a per-match confidence skips the downgrade layer *and* this gate.
+ * That is intended: `m.confidence` is a rule asserting certainty from its own
+ * domain knowledge of the match, a separate channel from the generic
+ * heuristics here — and therefore from their attack surface. The trade is
+ * explicit: **a rule that sets `m.confidence` takes on the gate's
+ * responsibility itself.** No rule sets it today, and the analyzer pins the
+ * bypass with a test so that the day one starts, it surfaces in review.
  */
 
 /** Per-rule policy switch stored on RuleDefinition.contextConfidence. */
 export type ContextConfidenceMode = 'auto' | 'off';
 
-/** A reason the confidence of a match was lowered. */
-export type DowngradeSignal = 'comment' | 'docstring' | 'test-path';
+/**
+ * A reason the confidence of a match was lowered. Declared in findings-schema
+ * (the Finding's audit trail names these signals, and the dependency only runs
+ * rules → schema), re-exported here so this module stays the place callers look
+ * for it.
+ */
+export type { DowngradeSignal };
 
 // Confidence as an ordered ladder. Index is the "rank"; downgrading subtracts.
 const LADDER: readonly Confidence[] = ['low', 'medium', 'high'];
@@ -49,6 +123,46 @@ const SIGNAL_STEPS: Record<DowngradeSignal, number> = {
 };
 
 /**
+ * The lowest confidence the context layer may downgrade a finding to, per
+ * severity; `null` means ungated (plain item ① behaviour). See the header for
+ * why this exists, why `high` here reads as "never downgraded", and why
+ * `medium` does not.
+ *
+ * `critical` and `high` are floored at `high`: when a finding would be severe if
+ * real, "it looks like it's in a comment" is not evidence we are willing to act
+ * on, because that is the one signal an attacker can forge for free. Those
+ * findings therefore take no context downgrade at all.
+ *
+ * `medium` is floored at `medium`, which is a weaker bound on purpose. A
+ * `medium`-severity finding is still something a consumer acts on at the default
+ * threshold, so letting context push it to `low` hands the same free hiding place
+ * back — a real finding wrapped in a docstring simply disappears below the line.
+ * Flooring at `medium` closes that: `high → medium` still happens (the noise
+ * reduction the context layer exists for survives, one rung of it), but the
+ * finding cannot be buried. Proportionality, not a lesser principle: the bound is
+ * set at the threshold that severity implies, not at the top of the ladder.
+ *
+ * `low` and `info` stay `null`, deliberately. These are the bands where the
+ * false-positive reduction is worth the most and the impact if the downgrade is
+ * abused is smallest, so they keep the unmodified item ① behaviour and take the
+ * full downgrade. Note also that writing `'low'` here would be *inert*:
+ * `RANK['low'] = 0` is the bottom rung, so `max(rank, min(RANK[base], 0)) ===
+ * rank` for every input — a `'low'` floor and `null` are the same function.
+ * `null` says so honestly instead of implying a gate that does nothing.
+ *
+ * Deliberately a total `Record` rather than a `Partial`: a new severity in the
+ * schema must break this build and force an explicit decision, instead of
+ * silently defaulting to "ungated" — the quiet direction is the unsafe one.
+ */
+export const SEVERITY_CONFIDENCE_FLOOR: Record<Severity, Confidence | null> = {
+  critical: 'high',
+  high: 'high',
+  medium: 'medium',
+  low: null,
+  info: null,
+};
+
+/**
  * Recognise file paths that are test fixtures / mocks / specs. Shared with the
  * VG-QUAL-007 `filterTestPaths` guard so there is a single source of truth.
  */
@@ -58,9 +172,6 @@ export const TEST_PATH_RE =
 export function isTestPath(filePath?: string): boolean {
   return filePath != null && TEST_PATH_RE.test(filePath);
 }
-
-/** Languages where a leading `#` is NOT a line comment (so we must not treat it as one). */
-const HASH_NOT_COMMENT = new Set(['javascript', 'typescript', 'java', 'go', 'csharp']);
 
 /**
  * Languages whose multi-line string literals act as docstrings (triple-quoted
@@ -81,6 +192,32 @@ const TRIPLE_QUOTE_LANGS = new Set(['python']);
  * machine: it scans every line strictly before the match line, toggling block
  * state. It is the complement to `isCommentLine` (which only catches whole-line
  * `//`/`#` comments) and to `runRegex({ skipCommentLines })` (same limitation).
+ *
+ * Both answer "what opens a line comment in this language?" out of the one
+ * `LINE_COMMENT_SPECS` allowlist in matcher-utils, reached through
+ * `getLineCommentSpec`, so a language is classified identically here and there.
+ * They differ only in *where* they ask. `isCommentLine` asks at the first
+ * non-whitespace character, because it decides whether a whole line is a
+ * comment. The scan below asks `lineCommentStartsAt(line, k, spec)` at every
+ * position `k` it reaches in `normal` state, because it must also handle
+ * TRAILING comments: in `x = 1  # opens """` the `#` has to swallow the rest of
+ * the line, or the `"""` phantom-opens a docstring over the code that follows.
+ * Dropping the line-start predicate in here would break precisely that, which is
+ * why the positional form exists.
+ *
+ * The branch is map-driven for every prefix, `//` included. Hard-coding `//` as
+ * unconditional (as this scanner once did) corrupts languages where it is an
+ * operator, not a comment: Python's `x = a // 2 + "s…` would have the rest of the
+ * line skipped and the string state silently lost.
+ *
+ * A language with no allowlist entry gets the empty spec, so nothing swallows and
+ * the scan reads the whole line as code. The direction of that fallback differs
+ * from `isCommentLine`'s: there an empty spec can only cost a false positive,
+ * whereas here an unswallowed `/*` sitting inside what really was a comment can
+ * phantom-open a block and wrongly down-rank the lines after it. That residual is
+ * bounded by construction — the worst case is a `docstring` down-rank, which is
+ * applied at the analyzer chokepoint and clamped there by
+ * `SEVERITY_CONFIDENCE_FLOOR` — whereas a wrongly dropped match reaches neither.
  *
  * Two deliberate, *safe-direction* limitations (they only ever WITHHOLD a
  * down-rank, never wrongly apply one, so they cannot demote a true positive):
@@ -109,7 +246,7 @@ export function isInDocstringOrBlockComment(
   lineNumber: number,
   language?: string,
 ): boolean {
-  const hashIsComment = !(language != null && HASH_NOT_COMMENT.has(language));
+  const spec = getLineCommentSpec(language);
   const allowTripleQuote = language != null && TRIPLE_QUOTE_LANGS.has(language);
   let state: ScanState = 'normal';
   const end = Math.min(lineNumber - 1, lines.length);
@@ -132,8 +269,10 @@ export function isInDocstringOrBlockComment(
           if (allowTripleQuote && three === '"""') { state = 'triple-d'; k += 3; continue; }
           if (allowTripleQuote && three === "'''") { state = 'triple-s'; k += 3; continue; }
           if (two === '/*') { state = 'block'; k += 2; continue; }
-          if (two === '//') { state = 'line-comment'; k = line.length; continue; }
-          if (ch === '#' && hashIsComment) { k = line.length; continue; }
+          // Only in `normal`: a `#`/`//` inside a string literal is content, not
+          // a comment. Kept after `/*` and before the string openers, matching
+          // the precedence the hard-coded branches had.
+          if (lineCommentStartsAt(line, k, spec)) { state = 'line-comment'; k = line.length; continue; }
           if (ch === '"') { state = 'str-d'; k += 1; continue; }
           if (ch === "'") { state = 'str-s'; k += 1; continue; }
           if (ch === '`') { state = 'str-bt'; k += 1; continue; }
@@ -204,7 +343,7 @@ export function detectDowngradeSignals(ctx: RuleContext, match: RuleMatch): Down
   const signals: DowngradeSignal[] = [];
   const lineNumber = inspectedLine(match);
   const lineText = ctx.lines[lineNumber - 1] ?? '';
-  if (isCommentLine(lineText)) {
+  if (isCommentLine(lineText, ctx.language)) {
     signals.push('comment');
   } else if (isInDocstringOrBlockComment(ctx.lines, lineNumber, ctx.language)) {
     signals.push('docstring');
@@ -222,18 +361,82 @@ export function downgradeConfidence(base: Confidence, steps: number): Confidence
   return LADDER[next]!;
 }
 
+/** The full reasoning behind one resolved confidence, for auditing and evaluation. */
+export interface ContextConfidenceResult {
+  /** The value to use: after signals AND after the severity gate. */
+  confidence: Confidence;
+  /** What item ① alone would have produced, with no gate applied. */
+  ungated: Confidence;
+  /** Signals that fired. Always empty when `mode === 'off'` (it short-circuits). */
+  signals: DowngradeSignal[];
+  /** Whether the gate actually changed the outcome (`ungated !== confidence`). */
+  floored: boolean;
+}
+
 /**
- * Resolve the effective confidence for a match given its surrounding context.
- * `mode === 'off'` returns the base unchanged (for comment-is-the-signal rules).
- * Otherwise sums the downgrade steps of every applicable signal and clamps.
+ * Resolve the effective confidence for a match, and explain how.
+ *
+ * The order is fixed and each step is the reason the next one is well-defined:
+ *  1. `mode === 'off'` → return `base`; the gate is never reached (see header).
+ *  2. collect the context signals for this match;
+ *  3. downgrade `base` by their summed steps — pure ladder arithmetic, and the
+ *     value item ① is evaluated on;
+ *  4. bound that by the severity floor, itself clamped to `base` so the result
+ *     can never exceed `base`.
+ *
+ * Callers that only need the number should use `contextConfidence`. This
+ * variant exists because `ungated` and `floored` are measurements, not
+ * debugging aids: they let an A/B harness compare gated against un-gated
+ * confidence from the *same* primitive — so evaluating the gate never requires
+ * a "disable the gate" flag in shipped code — and they let an audit trail
+ * record why a finding kept its confidence, both without re-running signal
+ * detection.
+ */
+export function explainContextConfidence(
+  base: Confidence,
+  severity: Severity,
+  ctx: RuleContext,
+  match: RuleMatch,
+  mode: ContextConfidenceMode = 'auto',
+): ContextConfidenceResult {
+  if (mode === 'off') {
+    return { confidence: base, ungated: base, signals: [], floored: false };
+  }
+  const signals = detectDowngradeSignals(ctx, match);
+  const steps = signals.reduce((sum, s) => sum + SIGNAL_STEPS[s], 0);
+  const ungated = downgradeConfidence(base, steps);
+
+  const floor = SEVERITY_CONFIDENCE_FLOOR[severity];
+  if (floor == null) {
+    return { confidence: ungated, ungated, signals, floored: false };
+  }
+  // `min(RANK[base], …)`: the floor may only ever hold a downgrade back, never
+  // push a finding above the confidence its rule declared. Without this clamp a
+  // critical/medium-confidence rule would be promoted to `high` by the very
+  // context that was supposed to make us trust it less.
+  const effective = Math.max(RANK[ungated], Math.min(RANK[base], RANK[floor]));
+  const confidence = LADDER[effective]!;
+  return { confidence, ungated, signals, floored: confidence !== ungated };
+}
+
+/**
+ * Resolve the effective confidence for a match given its surrounding context and
+ * the rule's severity. `mode === 'off'` returns the base unchanged (for
+ * comment-is-the-signal rules). Otherwise sums the downgrade steps of every
+ * applicable signal, then applies the severity gate.
+ *
+ * `severity` is required on purpose. Making it optional would create a silent
+ * failure mode — forget the argument at a call site and the security gate simply
+ * stops existing, with no error anywhere — which is the exact class of defect
+ * this gate defends against. Required, the type checker names every call site
+ * that has to make the decision.
  */
 export function contextConfidence(
   base: Confidence,
+  severity: Severity,
   ctx: RuleContext,
   match: RuleMatch,
   mode: ContextConfidenceMode = 'auto',
 ): Confidence {
-  if (mode === 'off') return base;
-  const steps = detectDowngradeSignals(ctx, match).reduce((sum, s) => sum + SIGNAL_STEPS[s], 0);
-  return downgradeConfidence(base, steps);
+  return explainContextConfidence(base, severity, ctx, match, mode).confidence;
 }

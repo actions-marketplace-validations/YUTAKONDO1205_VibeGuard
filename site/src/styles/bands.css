@@ -1,0 +1,90 @@
+/* bands.css — the horizontal slices a page is made of.
+ *
+ * A page here is a stack of bands, each one a full-bleed surface with a centred
+ * column inside it. The model this site is translating separates its sections
+ * by changing the background colour, and that is what is being kept.
+ *
+ * The important half of the mechanism is not in this file. tokens.css re-defines
+ * the foreground tokens inside `.vg-band--code`, so a component dropped onto the
+ * dark band comes out right without knowing it is there. This file only paints
+ * the surfaces and draws the boundary; the boundary is the part that has to be
+ * here rather than left to each page.
+ */
+
+.vg-band {
+  /*
+   * Every band, without exception, and this is measured rather than aesthetic.
+   * Adjacent surfaces on this site differ by as little as 1.13 in the light
+   * scheme and 1.03 in the dark one. At those ratios the change of colour is
+   * not a visible edge — a reader does not perceive that one section ended and
+   * another began. The 1px line is what actually separates them; the surface
+   * colour only sets the mood.
+   *
+   * A band that wants no line at its top is a band that should have been merged
+   * with the one above it.
+   */
+  border-top: 1px solid var(--vg-rule);
+  padding-block: var(--vg-space-8);
+  color: var(--vg-ink);
+}
+
+.vg-band__inner {
+  /*
+   * The column. `min()` rather than `max-width` plus padding, because the two
+   * behave differently at 400% zoom: with padding, the gutter keeps its full
+   * size when there is no room for it and the content is squeezed to nothing.
+   * Here the gutter is part of the width calculation, so the column shrinks
+   * with the viewport and the page never needs to scroll sideways.
+   */
+  width: min(72rem, 100% - var(--vg-space-5) * 2);
+  margin-inline: auto;
+}
+
+/*
+ * The four surfaces. Only the background is set here — the foregrounds that go
+ * with a surface are tokens, re-defined in tokens.css for the one band whose
+ * surface is dark enough to need it.
+ */
+.vg-band--base {
+  background: var(--vg-surface-base);
+}
+
+.vg-band--tint {
+  background: var(--vg-surface-tint);
+}
+
+.vg-band--code {
+  background: var(--vg-surface-code);
+}
+
+.vg-band--news {
+  background: var(--vg-surface-news);
+}
+
+/*
+ * The hero.
+ *
+ * It used to be a Carbon band holding one finding at display size. It is now
+ * the model's own hero pattern instead: a Frost band with the product name
+ * centred at display size, a one-line tagline under it in the light weight, a
+ * filled pill and an outlined pill side by side, and then the thing the product
+ * makes — a real finding, in a rounded Carbon panel that stands in for the
+ * product render the model puts there.
+ *
+ * The band carries no min-height. That was needed when the band's whole content
+ * was one finding and it had to fill a screen; with five stacked elements in it
+ * the content sets the height, and a floor would only ever add a gap under the
+ * caption. The rhythm is padding — --vg-space-8 above, which every band gets,
+ * and the same below.
+ *
+ * The alternative to moving it — keeping the Carbon band and putting the
+ * buttons on it — is the one thing the palette forbids: the filled pill's fill
+ * does not clear 3.0 against a Carbon surface in either scheme, so the primary
+ * action would have been a button some readers cannot find. Standing the panel
+ * on the canvas instead gets the model's layout and keeps the button legible.
+ */
+.vg-band--hero,
+.vg-hero {
+  display: grid;
+  align-items: center;
+}

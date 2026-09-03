@@ -12,20 +12,99 @@ jobs:
   build-test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v6
+      # scripts/ref-freshness.test.ts and scripts/sweep-disclosure.test.ts build
+      # their fixtures from `git for-each-ref refs/remotes/origin`, because the
+      # thing under test is whether a local ref agrees with the remote. On a
+      # `push` run the checkout leaves one such ref behind and the tests run; on
+      # a `pull_request` run it checks out the merge ref detached and leaves
+      # none, so the fixture comes out empty and five assertions fail for a
+      # reason that has nothing to do with the code in the pull request.
+      #
+      # Measured: every pull_request run of this workflow has failed at `npm
+      # test` since those tests landed, while `push` runs on the default branch
+      # stayed green — so the signal a reviewer reads on a PR had already been
+      # destroyed, quietly, by an environment difference.
+      #
+      # Fetching the branch refs makes the precondition true, which is better
+      # than the alternatives: skipping the tests on PRs would take a gate off
+      # exactly the runs a reviewer looks at, and asserting nothing when the
+      # fixture is empty is the silent pass this repository refuses everywhere
+      # else. Nothing here weakens a check — it gives one the input it needs.
+      - name: Fetch branch refs (the freshness tests read refs/remotes/origin)
+        run: git fetch --no-tags --prune origin '+refs/heads/*:refs/remotes/origin/*'
+
+      - uses: actions/setup-node@v7
         with:
           node-version: '20'
           cache: 'npm'
 
       - run: npm ci
 
+      # Before the build, because this catches the class of breakage that only
+      # shows up at `vsce package` time — i.e. on a release tag, weeks after the
+      # commit that caused it. Cheap, no build required, and it fails with the
+      # fix spelled out rather than with a packaging error.
+      #
+      # --pre-build runs only the invariants that read source and manifests.
+      # The bundle-leak and bundle-size invariants need extensions/*/dist and
+      # therefore run after the build, in the step below. They are NOT skipped
+      # here — the flag makes this step promise less, so that a missing artefact
+      # can stay a hard failure where it is genuinely a failure.
+      - name: Check packaging invariants (source-only)
+        run: node scripts/check-packaging-invariants.mjs --pre-build
+
+      # Disclosure shapes, not disclosure words. Three things reached this
+      # repository's public history that a word list could not have caught: a
+      # label spelled in a form nobody enumerated, a path carrying one machine's
+      # account name, and an ignore file that annotated why each withheld path
+      # was withheld. This check matches the SHAPES those take and contains no
+      # proper noun, which is what lets it run here at all — a checker that lists
+      # what it forbids would publish the list to every reader of this file and
+      # to the archived log of every run.
+      #
+      # It exits 3 rather than 0 when it scanned nothing or when a needle failed
+      # against its own positive control: a confident zero from a broken needle
+      # is how the label above survived several audits.
+      - name: Check for disclosure-shaped strings
+        run: node scripts/check-disclosure-shape.mjs
+
+      # The step above runs the detector. This one runs it again through the
+      # sweep that verifies the instrument first, because the detector was never
+      # the thing that broke — the plumbing around it was, twice, and both times
+      # the symptom was a small confident zero that nobody re-ran.
+      #
+      # Before it says anything about the tree, the sweep writes known-positive
+      # files to disk, hands their paths to the detector as a real child process,
+      # and checks that every planted needle came back byte for byte. A needle
+      # that goes missing between this runner and the matcher stops the run with
+      # exit 3 and NO reading, which is the only honest output from a broken
+      # instrument. It also fails when nothing was scanned, so an empty sweep can
+      # never be reported as a clean one.
+      #
+      # The freshness half is skipped here on purpose and the skip is printed:
+      # the gate exists to catch an audit conducted against a stale
+      # remote-tracking ref, and a fresh CI checkout has nothing to be stale
+      # against. The verdict downgrades itself to "CLEAN against the local refs"
+      # rather than claiming more than it checked.
+      - name: Disclosure sweep (instrument verified before the reading)
+        env:
+          VG_SWEEP_ALLOW_STALE_REF: '1'
+        run: node scripts/sweep-disclosure.mjs
+
       - run: npm run build
+
+      # Now that the extensions are built, check the shipped artefacts. This is
+      # the half that enforces the 0.3.0-α package separation: no cross-file
+      # analysis code inside a browser or editor bundle. A missing dist here is
+      # a failure, not a skip.
+      - name: Check packaging invariants (shipped bundles)
+        run: node scripts/check-packaging-invariants.mjs
 
       - run: npm test
 
-  # Cross-channel judgment consistency (paper item ②). Proves the built node
+  # Cross-channel judgment consistency (evaluation E1). Proves the built node
   # entry (CLI / Action `scanPath`) and the built browser entry (Chrome / VS
   # Code `scan`) emit identical findings on the same inputs. Blocking: a
   # divergence means the four channels disagree, which is a correctness bug.
@@ -33,9 +112,9 @@ jobs:
     runs-on: ubuntu-latest
     needs: build-test
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: '20'
           cache: 'npm'
@@ -46,8 +125,110 @@ jobs:
       - name: Assert node/browser paths agree
         run: node scripts/e1-consistency-eval.mjs >> "$GITHUB_STEP_SUMMARY"
 
+  # H2 — the self-hardening gate. VibeGuard
+  # regression-tests its OWN attack surface here: the ReDoS surface of the rule
+  # regexes (A1), the evasion rate of rewrites against the shipped detector (B1),
+  # the concealment rate of triage-abuse disguises (B3), and the finding SETS of
+  # the sample corpora. Thresholds live in the tracked
+  # scripts/sec-selftest-baseline.json, so moving one is a reviewed diff.
+  #
+  # BLOCKING, deliberately, and with no `continue-on-error`: unlike perf-bench
+  # below, every number this job compares is deterministic — the generators
+  # declare (and were measured to have) no clock and no RNG — so a red run means
+  # a real regression, never CI weather. The one arm that WOULD be weather-
+  # dependent, wall-clock ReDoS timing, is deliberately not a gate here; that
+  # property is asserted in packages/analyzer-core/src/redos-invariant.test.ts
+  # under `npm test`, where a generous per-test budget is affordable.
+  #
+  # The B1/B3 corpora are REGENERATED here rather than checked out: they live in
+  # an ignored working directory, so on a runner they do not exist. (Why that
+  # directory is withheld is deliberately not recorded here — a workflow file is
+  # as public as an ignore file, and the same reasoning applies to both.) Their
+  # inputs — samples/vulnerable and test_problem — are tracked, and
+  # the generators are deterministic, which is what makes the tracked baseline
+  # comparable run to run. Budget ~30 s, dominated by B1 corpus generation.
+  #
+  # ⚠ Making this a REQUIRED status check is a branch-protection setting in the
+  # GitHub repository configuration. It cannot be expressed in this file, and
+  # nothing here should be read as having done it.
+  security-selftest:
+    runs-on: ubuntu-latest
+    needs: build-test
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - run: npm ci
+      - run: npm run build
+
+      # `tee` into RUNNER_TEMP rather than the workspace so the log cannot show
+      # up as an untracked file in a later step. `set -o pipefail` is what keeps
+      # the gate's exit code from being swallowed by tee — without it this job
+      # would report the exit status of `tee`, i.e. always success, which is the
+      # exact failure mode a self-hardening gate must not have.
+      # `--redact-metrics` is what makes this step safe to run in public. The
+      # B1/B3 gates compare measured evasion and concealment rates against the
+      # tracked baseline, and those rates are the headline numbers of a
+      # write-up that has not been published. Without the flag every run put
+      # them on three readable surfaces at once: this job log (the tee below
+      # prints to stdout), the run page's step summary rendered from the same
+      # log, and the artefact that used to be uploaded at the end of this job.
+      # Measured on run 31353542731 before the fix — the log carried the rates
+      # verbatim. The flag withholds the readings and keeps everything that
+      # makes the gate a gate: the verdict per gate, the gate ids, the
+      # failed-gate list, and the exit status. A regression is still red here;
+      # the maintainer reruns without the flag locally to see by how much.
+      - name: Self-hardening gate (A1 / B1 / B3 / corpora)
+        shell: bash
+        run: |
+          set -o pipefail
+          node scripts/sec-selftest.mjs --redact-metrics | tee "$RUNNER_TEMP/selftest.log"
+
+      - name: Render self-hardening report
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo '## VibeGuard self-hardening selftest (H2)'
+            echo ''
+            echo '```'
+            cat "$RUNNER_TEMP/selftest.log" 2>/dev/null || echo '(the gate produced no output — it failed before reporting)'
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # THE MANIFEST IS DELIBERATELY NOT UPLOADED, and this comment is the
+      # record of why so nobody adds the step back for trend-watching.
+      #
+      # It used to be uploaded under its own name, retained 30 days. That name
+      # is deliberately not written here — the test in
+      # scripts/sec-selftest.test.ts asserts the whole file does not contain it,
+      # so a comment that spelled it out would either fail the test or force the
+      # test to be weakened into something a re-added step could slip past. On a
+      # public repository an artefact is a public download: no token, no
+      # membership, just the run page. The file it carried is the run record of
+      # the B1 and B3 arms, and its `metrics` objects are the measured evasion
+      # and concealment rates of an unpublished write-up — not a summary of
+      # them, the numbers themselves. Measured 2026-08-10: 357 artefacts
+      # existed, many unexpired, the newest from that morning's run.
+      #
+      # The gate never needed it. Its authority is the tracked baseline, the
+      # comparison happens in-process, and nothing in CI has ever written back.
+      # The artefact existed only so a future PR could plot a trend, which is
+      # not worth a standing public disclosure. The manifest is still written
+      # on the runner and still read by the gate in the same job; it simply
+      # stops leaving it. Trends are read locally, from a run without
+      # `--redact-metrics`.
+
   # Performance benchmark. Non-blocking by default — it fails only when a
-  # workload exceeds 2× its design-§11.1 target (see scripts/perf-bench.mjs).
+  # workload exceeds 2× its target in docs/DESIGN.ja.md §10.1 (see
+  # scripts/perf-bench.mjs). The section number is cited against the design doc
+  # that ships in this repository, deliberately: the number this line used to
+  # carry indexed a document that is not published, which tells a reader that
+  # such a document exists and how it is laid out, and cannot be looked up.
   # The JSON output is uploaded as an artifact so a future PR can plot trends.
   perf-bench:
     runs-on: ubuntu-latest
@@ -56,9 +237,9 @@ jobs:
     continue-on-error: true
     needs: build-test
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: '20'
           cache: 'npm'
@@ -85,3 +266,153 @@ jobs:
           name: perf-bench
           path: perf-bench.json
           retention-days: 30
+
+  # The native toolchain workspace under compiler/.
+  #
+  # It sits outside the npm workspaces on purpose — it is a research toolchain,
+  # not a shipped package — and the consequence went unnoticed: `npm test` walks
+  # the workspaces, none of the five workflows named a path under compiler/, and
+  # so its suites had only ever run on the machine that wrote them. The boundary
+  # around the directory was enforced in CI (check-packaging-invariants asserts
+  # it); what was inside the boundary was not.
+  #
+  # SCOPE, STATED RATHER THAN IMPLIED. This job runs the Node suites. The C++
+  # components — the Clang frontend gate and the two LLVM passes — need cmake and
+  # llvm-18-dev and are NOT built here. A green tick on this job means the Node
+  # side is exercised, not that the toolchain is.
+  # NOTE ON THE JOB NAME. It does not repeat the directory's name, and that is
+  # not stylistic: the naming guard treats that word as legitimate only under the
+  # directory itself and in the two git dotfiles that have to spell it, so a job
+  # named after it is a hit. Paths pointing INTO the directory are fine — those
+  # are the scoped form. The guard caught this the first time it was written the
+  # other way round, which is the behaviour wanted from it.
+  native-toolchain:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '20'
+
+      # The driver's end-to-end tests compile with a real clang and skip
+      # themselves when there is none. Installing it is the difference between
+      # asserting something and showing a green tick over a skipped suite; the
+      # step after this one fails the job if they skipped anyway.
+      - name: Install clang-18
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang-18
+
+      # The glob is unquoted so the SHELL expands it, not node. Passing the
+      # directory is what the component's README says, and it throws
+      # MODULE_NOT_FOUND on newer runtimes; quoting the glob makes node do the
+      # matching, which older ones cannot. Shell expansion is the form that works
+      # on both, and it fails loudly if the directory is ever empty.
+      - name: Driver
+        run: node --test compiler/driver/test/*.test.mjs
+
+      # A suite that skipped itself reports the same green as a suite that
+      # passed. These tests skip when there is no usable toolchain, which on a
+      # runner means the apt step above silently did not give us one — the case
+      # this job exists to rule out. Measured locally: 20 of 21 skip without
+      # clang, 0 with it. The count is read positionally rather than by output
+      # format, because `node --test` prints TAP on node 20 and a spec-style
+      # summary on newer ones, and the format is not what is being asserted.
+      - name: Assert the live-build tests were not skipped
+        run: |
+          out=$(node --test compiler/driver/test/driver-e2e.test.mjs 2>&1) || true
+          # 21 cases in this file; 20 of them need a toolchain.
+          echo "$out" | tail -12
+          skipped=$(echo "$out" | awk '/skipped/ {for (i = 1; i <= NF; i++) if ($i == "skipped") { print $(i + 1); exit }}')
+          if [ "${skipped:-unknown}" != "0" ]; then
+            echo "::error::${skipped} live-build test(s) skipped — clang was not usable, so this job proved less than its green tick suggests"
+            exit 1
+          fi
+
+      - name: ELF verifier
+        working-directory: compiler/elf-verifier
+        run: node test-units.mjs
+
+      - name: Evidence canonicaliser
+        working-directory: compiler/evidence
+        run: node verify.mjs --self-test
+
+      - name: Evidence clock audit
+        working-directory: compiler/evidence
+        run: node verify.mjs --clock-audit
+
+      # The two steps above run the canonicaliser's own self-checks, which is a
+      # different thing from running its test suite — and the suites of the five
+      # components below were reaching no runner at all. They arrived with their
+      # directories and nothing named them, so the only thing standing between a
+      # regression in them and a release was that nobody had touched them yet.
+      # Measured: 0 failed and 0 skipped for every one — evidence 72, provenance
+      # 55, schema 26, llvm-pass 45, pass-instrumentation 96, which is 294
+      # assertions that were previously running nowhere.
+      #
+      # WHY EACH STEP COUNTS ITS OWN INPUTS FIRST. `node --test` exits 0 when the
+      # glob matched nothing: an unmatched pattern is passed through literally,
+      # node finds no such file, and the run reports success. Two of the five
+      # paths below were wrong on the first attempt for exactly that reason and
+      # the steps went green anyway. A step that cannot tell "the suite passed"
+      # from "the suite was not there" is the failure mode the rest of this
+      # repository refuses, so the count is asserted before the suite runs.
+      #
+      # `envelope` was added once it had been seen green ON LINUX rather than on
+      # the machine it was written on: 121/121 with 0 skipped under node 18 with
+      # clang-18 present, which is this job. The distinction matters here more
+      # than elsewhere, because 44 cases in the driver suite are skipped on the
+      # author's platform and execute on this one.
+      #
+      # `fingerprint` and `link-wrapper` are deliberately NOT here. Their suites
+      # need a real compiler and linker reached directly (21 and 15 cases fail
+      # outright without one, by design; each has an env var that converts the
+      # failure into a named skip). They belong in this job, which installs
+      # clang-18 — but nobody has yet seen them green on a runner, and adding an
+      # unmeasured step here is how main was last left red across five commits.
+      # Filed rather than guessed.
+      #
+      # `elf-verifier` is the sharpest instance of the distinction this comment
+      # block already draws for `evidence`, and it went unnoticed for the same
+      # reason. The "ELF verifier" step above runs `test-units.mjs`, which is that
+      # component's own self-check over two specific pieces — the mangled-name
+      # scanner and the canonical record rules. Its test SUITE is
+      # `test/*.test.mjs`, 80 cases, and nothing ran it. A named step mentioning
+      # the component is what made it look covered: the list of what reaches no
+      # runner was read as "components with no step", when the property that
+      # matters is "suites with no runner".
+      #
+      # `observer`, `calibration` and `metamorphic` were the SAME omission as the
+      # original five, found again three components later: they arrived with their
+      # directories, nothing named them, and 42 more assertions were running
+      # nowhere (observer 22, calibration 10, metamorphic 10). They are added here
+      # rather than filed like `fingerprint` above because the reason for filing
+      # that one does not apply: all three are pure JS over catalogues, schemas
+      # and recorded text, they invoke no compiler at all — the only mentions of
+      # `clang` in them are in prose comments — and they were seen green with 0
+      # failed and 0 skipped before this step was written. Being toolchain-free
+      # they would also run in the main job; they are in this one because this is
+      # where every other `compiler/` suite already lives, and one list is easier
+      # to keep honest than two.
+      - name: compiler/ suites that reach no other runner
+        run: |
+          set -eu
+          run_suite() {
+            name=$1; shift
+            n=$#
+            for f in "$@"; do [ -e "$f" ] || { echo "::error::${name}: pattern matched no file (${f})"; exit 1; }; done
+            [ "$n" -gt 0 ] || { echo "::error::${name}: no test files"; exit 1; }
+            echo "--- ${name}: ${n} file(s)"
+            node --test "$@"
+          }
+          run_suite evidence              compiler/evidence/test/*.test.mjs
+          run_suite envelope              compiler/envelope/test/*.test.mjs
+          run_suite provenance            compiler/provenance/test/*.test.mjs
+          run_suite schema                compiler/schema/*.test.mjs
+          run_suite llvm-pass             compiler/llvm-pass/scripts/*.test.mjs
+          run_suite pass-instrumentation  compiler/pass-instrumentation/introduction/test/*.test.mjs
+          run_suite observer              compiler/pass-instrumentation/observer/test/*.test.mjs
+          run_suite calibration           compiler/eval/calibration/test/*.test.mjs
+          run_suite metamorphic           compiler/eval/metamorphic/test/*.test.mjs
+          run_suite elf-verifier          compiler/elf-verifier/test/*.test.mjs

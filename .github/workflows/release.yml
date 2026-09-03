@@ -11,7 +11,14 @@ name: Release
 on:
   push:
     tags:
-      - 'v*'
+      # Full versions only. The moving major tag `v0`, which the composite action
+      # tells consumers to reference, gets force-pushed to the newest release
+      # after every publish — and under a bare `v*` that re-entered this workflow
+      # and failed the "CLI version matches tag" check, because `0` is not
+      # `0.2.0`. A red run that means "the tag was repointed successfully" is
+      # worse than no run: it trains people to ignore release failures.
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+      - 'v[0-9]+.[0-9]+.[0-9]+-*'  # prereleases: v1.0.0-rc.1
   workflow_dispatch:
 
 permissions:
@@ -24,21 +31,19 @@ jobs:
     # Surfacing the secrets at job level lets the conditional `if: env.X != ''`
     # checks below decide whether to skip a publish channel. Missing secrets
     # resolve to empty strings (not an error) so a contributor can cut a
-    # GitHub release without having all three channels wired up.
+    # GitHub release without having both channels wired up.
     env:
-      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
       VSCE_PAT: ${{ secrets.VSCE_PAT }}
       OVSX_PAT: ${{ secrets.OVSX_PAT }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0  # full history so the release notes can reference prior tags
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: '20'
           cache: 'npm'
-          registry-url: 'https://registry.npmjs.org'  # required for npm publish auth
 
       # Resolve the version from the ref. Tag pushes give us refs/tags/vX.Y.Z;
       # workflow_dispatch falls back to the version field of the root
@@ -58,6 +63,19 @@ jobs:
 
       - run: npm run build
 
+      # The release-time invariants, run on the release path.
+      #
+      # ci.yml already runs these on every push and pull request, so this looks
+      # redundant — and it is, right up until the one run where it is not. This
+      # job is the only one that produces the bytes users install, it is
+      # triggered by a TAG rather than by a push (so a tag can point at a commit
+      # whose CI never completed, or completed before a later change to a
+      # workflow file), and everything it checks is cheap. The failure it exists
+      # to prevent — a shipped bundle that acquired something it must not carry —
+      # is invisible in the artefact and permanent once published.
+      - name: Check packaging invariants
+        run: node scripts/check-packaging-invariants.mjs
+
       # Sanity-check: the package.json version in apps/cli (the published
       # artifact) must match the tag. Catches "forgot to bump" mistakes
       # before we create a misnamed release.
@@ -70,14 +88,95 @@ jobs:
           fi
 
       # ── Package CLI tarball ──────────────────────────────────────────────
+      #
+      # THE TARBALL IS THE ONLY WAY A HUMAN INSTALLS THE CLI. It is not on npm
+      # and never will be (see the note further down), so this asset is the
+      # artefact the README points at. Up to 0.3.4 it was uninstallable: the
+      # `tsc` build left `dist/index.js` importing `@vibeguard/analyzer-core`
+      # and the manifest declared six `@vibeguard/*` runtime dependencies whose
+      # names exist on no registry, so `npm i vibeguard-cli-X.Y.Z.tgz` failed to
+      # resolve them and stopped. Nothing in this workflow noticed, because
+      # `npm pack` succeeds perfectly well on a package that cannot be
+      # installed.
+      #
+      # `apps/cli` is now bundled by esbuild (`apps/cli/build.mjs`): one
+      # self-contained `dist/index.js`, zero runtime dependencies, `"files":
+      # ["dist"]`. The three steps below are ordered so that the thing we
+      # upload is the thing we proved installable, in that order.
       - name: Pack CLI tarball
         id: cli
         run: |
           # `npm pack -w @vibeguard/cli` writes the tarball to the workspace
           # directory by default. Move it to repo root for the release upload.
+          #
+          # The bundle is (re)built here by the workspace's own `prepack`
+          # script, which npm runs for `npm pack`. That is belt AND braces on
+          # top of `npm run build` above, and both are wanted: the root build is
+          # what a human runs, `prepack` is what makes the tarball correct even
+          # if someone packs without it. `--ignore-scripts` would defeat it —
+          # which is why the verification step below reads the packed bytes
+          # rather than trusting that the build ran.
           npm pack --workspace @vibeguard/cli --pack-destination .
           ls -la vibeguard-cli-*.tgz
           echo "tarball=$(ls vibeguard-cli-*.tgz)" >> "$GITHUB_OUTPUT"
+
+      # ── Prove the tarball installs and runs, before it becomes a release ──
+      #
+      # `npm pack` exiting 0 says nothing about installability, and that gap is
+      # exactly how a broken artefact shipped for several releases. This step
+      # closes it with the only test that counts: install the packed bytes into
+      # an EMPTY directory with no workspace, no node_modules and no registry
+      # entry to fall back on, then run the binary and require findings.
+      #
+      # Three assertions, each guarding a different failure:
+      #   1. the packed manifest declares no `@vibeguard/*` runtime dependency —
+      #      the direct cause of the old breakage, checked on the packed bytes
+      #      rather than on the source manifest;
+      #   2. `npm i <tarball>` succeeds in isolation and the binary runs;
+      #   3. it finds a NON-ZERO number of findings in samples/vulnerable. This
+      #      is the assertion that matters most and the one a naive check omits:
+      #      a bundle that tree-shook the rule registry away still installs,
+      #      still runs, still exits 0 — and reports nothing. "Clean scan" and
+      #      "dead scanner" are the same output, so the count has to be checked.
+      - name: Verify the tarball installs and scans in isolation
+        run: |
+          set -euo pipefail
+          TARBALL="$PWD/${{ steps.cli.outputs.tarball }}"
+
+          mkdir -p /tmp/vg-tarball-check
+          tar -xzf "$TARBALL" -C /tmp/vg-tarball-check
+          node -e '
+            const pkg = require("/tmp/vg-tarball-check/package/package.json");
+            const vg = Object.keys(pkg.dependencies || {}).filter((n) => n.startsWith("@vibeguard/"));
+            if (vg.length > 0) {
+              console.error("::error::the packed manifest declares @vibeguard/* runtime dependencies: " + vg.join(", "));
+              console.error("Those names are not on any registry, so this tarball cannot be installed.");
+              console.error("They belong in devDependencies; the packages are inlined by apps/cli/build.mjs.");
+              process.exit(1);
+            }
+            console.log("packed manifest declares " + Object.keys(pkg.dependencies || {}).length + " runtime dependencies");
+          '
+
+          # An empty directory outside the workspace: nothing here can be
+          # satisfied by a hoisted node_modules or a workspace symlink.
+          mkdir -p /tmp/vg-install && cd /tmp/vg-install
+          npm init -y > /dev/null
+          npm install --no-audit --no-fund "$TARBALL"
+          ./node_modules/.bin/vibeguard --version
+
+          cd "$GITHUB_WORKSPACE"
+          /tmp/vg-install/node_modules/.bin/vibeguard samples/vulnerable \
+            --mode standard --format json --fail-on never --out /tmp/vg-install/scan.json
+          node -e '
+            const n = require("/tmp/vg-install/scan.json").findings.length;
+            if (n === 0) {
+              console.error("::error::the installed CLI reported ZERO findings on samples/vulnerable.");
+              console.error("It installed and exited 0, so nothing else in this job would have noticed.");
+              console.error("A bundle that lost the rule registry looks exactly like a clean repository.");
+              process.exit(1);
+            }
+            console.log("installed CLI reported " + n + " findings on samples/vulnerable");
+          '
 
       # ── Package VS Code extension ────────────────────────────────────────
       # --no-dependencies avoids resolving workspace symlinks into the VSIX
@@ -115,13 +214,14 @@ jobs:
       # ── Conditional publish steps ───────────────────────────────────────
       # Each step runs only when its secret is configured. Missing a secret
       # is not an error — it lets a contributor cut a GitHub release without
-      # having all three publishing channels wired up.
-
-      - name: Publish CLI to npm
-        if: ${{ env.NPM_TOKEN != '' }}
-        env:
-          NODE_AUTH_TOKEN: ${{ env.NPM_TOKEN }}
-        run: npm publish --workspace @vibeguard/cli --access public
+      # having both publishing channels wired up.
+      #
+      # The CLI is NOT published to npm, deliberately and permanently. It ships
+      # as the tarball attached to the release above (README points there), and
+      # for CI as the composite action, which builds from the checkout and never
+      # resolves `@vibeguard/cli` from a registry. Nothing here should grow an
+      # `npm publish` step back: the package name is unclaimed on the registry,
+      # so publishing would newly expose a name that has never been ours.
 
       - name: Publish VSIX to VS Code Marketplace
         if: ${{ env.VSCE_PAT != '' }}

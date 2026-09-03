@@ -1,10 +1,12 @@
-// vibeguard:disable-file
+// vibeguard:disable-file VG-INJ-004 VG-SEC-001 VG-SEC-003
 // Test fixtures contain intentional vulnerable code to exercise the rules.
-import { mkdtemp, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
+import type { RuleDefinition } from '@vibeguard/rules';
 import { scanPath } from './file-scanner.js';
+import { suppressionsForPath, type VibeguardConfig } from './config.js';
 
 const TEMP_DIRS: string[] = [];
 
@@ -42,6 +44,35 @@ describe('scanPath', () => {
     expect(result.findings.find((f) => f.filePath?.endsWith('safe.py'))).toBeUndefined();
   });
 
+  // A rule that throws must surface in the aggregated response, not vanish. This
+  // is the shipped path (the CLI calls scanPath, never Analyzer.scan directly),
+  // so a per-file crash that the analyzer records must survive aggregation —
+  // deduped by ruleId so a rule that throws on every file appears once.
+  it('aggregates ruleErrors across files, deduped by ruleId', async () => {
+    const boom: RuleDefinition = {
+      ruleId: 'VG-TEST-BOOM',
+      name: 'boom',
+      description: 'throws on match',
+      languages: ['*'],
+      category: 'quality',
+      severity: 'high',
+      defaultConfidence: 'high',
+      match: () => {
+        throw new Error('kaboom');
+      },
+    };
+    // .txt has no detected language, so the injected rule is honoured on each file.
+    const dir = await makeRepo({ 'a.txt': 'anything', 'b.txt': 'more' });
+    const result = await scanPath(dir, { rules: [boom] });
+    expect(result.ruleErrors).toEqual([{ ruleId: 'VG-TEST-BOOM', message: 'kaboom' }]);
+  });
+
+  it('omits ruleErrors when no rule throws', async () => {
+    const dir = await makeRepo({ 'a.py': 'x = 1\n' });
+    const result = await scanPath(dir);
+    expect(result.ruleErrors).toBeUndefined();
+  });
+
   it('returns an empty response on a clean directory', async () => {
     const dir = await makeRepo({
       'a.py': 'def add(a, b):\n    return a + b\n',
@@ -51,11 +82,182 @@ describe('scanPath', () => {
     expect(result.summary.total).toBe(0);
   });
 
+  // The config channel is the second way to silence a finding, and it is the one
+  // the analyzer never sees — `Analyzer.scan` has already returned by the time
+  // `suppressionsForPath` is consulted. These three pin the D5 gate down on that
+  // path end-to-end, through the function the CLI actually calls.
+  it('reports a critical finding through a rules-omitted config entry', async () => {
+    const dir = await makeRepo({
+      'evil.js': 'const v = eval(input);\n',
+      '.vibeguardrc.json': JSON.stringify({ suppress: [{ paths: ['**/*.js'] }] }),
+    });
+    const result = await scanPath(dir);
+    const f = result.findings.find((x) => x.ruleId === 'VG-INJ-004');
+    expect(f).toBeDefined();
+    expect(f?.suppressionOverridden).toEqual({ channel: 'config', scope: 'path' });
+  });
+
+  it('still honours a config entry that names the rule', async () => {
+    // The escape hatch, on the config channel. Same fixture, one field added.
+    const dir = await makeRepo({
+      'evil.js': 'const v = eval(input);\n',
+      '.vibeguardrc.json': JSON.stringify({
+        suppress: [{ paths: ['**/*.js'], rules: ['VG-INJ-004'] }],
+      }),
+    });
+    const result = await scanPath(dir);
+    expect(result.findings.some((x) => x.ruleId === 'VG-INJ-004')).toBe(false);
+  });
+
+  it('mutation control: the pre-gate config predicate would have dropped it', async () => {
+    // Without this the test above only proves the finding is reported, not that
+    // the wildcard would once have removed it. `legacy` is the pre-D5 body of
+    // `isPathSuppressed` verbatim, run on the same resolved suppression set.
+    const cfg: VibeguardConfig = { suppress: [{ paths: ['**/*.js'] }] };
+    const s = suppressionsForPath(cfg, 'evil.js', new Date('2026-05-22T00:00:00Z'));
+    const legacy = s.has('*') || s.has('VG-INJ-004');
+    expect(legacy).toBe(true);
+  });
+
   it('respects knownLanguagesOnly', async () => {
     const dir = await makeRepo({
       'note.txt': 'API_KEY = "AKIAIOSFODNN7EXAMPLE"',
     });
     const result = await scanPath(dir, { knownLanguagesOnly: true });
     expect(result.findings).toEqual([]);
+  });
+});
+
+/**
+ * D8 on the config channel, through `scanPath` — the function the CLI and the
+ * GitHub Action actually call.
+ *
+ * `scanPath` is where the two halves of the tally have to meet: the analyzer
+ * reports the pragma half per file and `scanPath` throws that per-file response
+ * away, so the merge is a real failure point rather than a formality. Both
+ * halves are asserted, in one scan, for that reason.
+ *
+ * Again: observability, not defence. The named suppressions below all work.
+ */
+describe('scanPath — suppression tally (D8)', () => {
+  it('records a config entry that names a critical rule', async () => {
+    const dir = await makeRepo({
+      'evil.js': 'const v = eval(input);\n',
+      '.vibeguardrc.json': JSON.stringify({
+        suppress: [{ paths: ['**/*.js'], rules: ['VG-INJ-004'] }],
+      }),
+    });
+    const result = await scanPath(dir);
+    expect(result.findings.some((f) => f.ruleId === 'VG-INJ-004')).toBe(false);
+    expect(result.summary.critical).toBe(0);
+    const rec = result.suppressions?.find((s) => s.ruleId === 'VG-INJ-004');
+    expect(rec).toBeDefined();
+    expect(rec?.channel).toBe('config');
+    expect(rec?.scope).toBe('path');
+    expect(rec?.count).toBe(1);
+    expect(rec?.filePath).toBe('evil.js');
+  });
+
+  it('carries the analyzer\'s pragma records across the directory walk', async () => {
+    // The merge point. Before D8 the per-file `ScanResponse` was consulted only
+    // for findings, ruleErrors and degradations, so a pragma record produced
+    // inside the analyzer would have been dropped here without a trace.
+    const dir = await makeRepo({
+      'evil.js': 'const v = eval(input); // vibeguard:disable-line VG-INJ-004\n',
+    });
+    const result = await scanPath(dir);
+    expect(result.findings.some((f) => f.ruleId === 'VG-INJ-004')).toBe(false);
+    expect(result.suppressions).toContainEqual({
+      ruleId: 'VG-INJ-004',
+      channel: 'pragma',
+      scope: 'line',
+      filePath: 'evil.js',
+      count: 1,
+    });
+  });
+
+  it('keeps both channels distinguishable in one walk', async () => {
+    const dir = await makeRepo({
+      'pragma.js': 'const v = eval(input); // vibeguard:disable-line VG-INJ-004\n',
+      'config.js': 'const v = eval(input);\n',
+      '.vibeguardrc.json': JSON.stringify({
+        suppress: [{ paths: ['config.js'], rules: ['VG-INJ-004'] }],
+      }),
+    });
+    const result = await scanPath(dir);
+    const channels = new Set((result.suppressions ?? []).map((s) => s.channel));
+    expect(channels).toEqual(new Set(['pragma', 'config']));
+  });
+
+  it('omits the field when nothing was suppressed', async () => {
+    const dir = await makeRepo({ 'evil.js': 'const v = eval(input);\n' });
+    const result = await scanPath(dir);
+    expect(result.findings.some((f) => f.ruleId === 'VG-INJ-004')).toBe(true);
+    expect('suppressions' in (result as object)).toBe(false);
+  });
+});
+
+describe('unexamined — what the walk declined to read', () => {
+  // The channel exists because two admission rules were silent, and a green
+  // tick over silence is the thing this whole area is about. Neither admission
+  // rule changes here; only whether the skip leaves a trace.
+
+  it('records an ignored build directory and marks it as build output', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'vg-unexamined-'));
+    TEMP_DIRS.push(dir);
+    await mkdir(join(dir, 'dist'));
+    await mkdir(join(dir, 'node_modules'));
+    await writeFile(join(dir, 'dist', 'bundle.js'), 'export const a = 1;\n', 'utf8');
+    await writeFile(join(dir, 'ok.js'), 'export const b = 2;\n', 'utf8');
+
+    const scan = await scanPath(dir, { config: false });
+    const paths = (scan.unexamined ?? []).map((u) => u.path);
+    expect(paths).toContain('dist');
+    expect(paths).toContain('node_modules');
+    // The distinction the channel is FOR: one of these is housekeeping and the
+    // other is everything the project ships.
+    const dist = scan.unexamined!.find((u) => u.path === 'dist')!;
+    const nm = scan.unexamined!.find((u) => u.path === 'node_modules')!;
+    expect(dist.looksLikeBuildOutput).toBe(true);
+    expect(nm.looksLikeBuildOutput).toBe(false);
+    expect(dist.kind).toBe('ignored-directory');
+  });
+
+  it('records a file dropped for size, with its size, instead of dropping it silently', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'vg-unexamined-'));
+    TEMP_DIRS.push(dir);
+    const big = `/*${'x'.repeat(1_200_000)}*/\nexport const a = 1;\n`;
+    await writeFile(join(dir, 'huge.bundle.js'), big, 'utf8');
+
+    const scan = await scanPath(dir, { config: false });
+    const rec = (scan.unexamined ?? []).find((u) => u.path === 'huge.bundle.js');
+    expect(rec, 'an over-size file must leave a record').toBeDefined();
+    expect(rec!.kind).toBe('over-size-limit');
+    expect(rec!.bytes).toBeGreaterThan(1_000_000);
+    // A `.bundle.js` over the limit is almost always the shipped artifact.
+    expect(rec!.looksLikeBuildOutput).toBe(true);
+    expect(rec!.detail).toMatch(/dropped, not cleared/);
+  });
+
+  it('is absent, not empty, when nothing was skipped', async () => {
+    // The field is omitted so a scan that skipped nothing stays byte-identical
+    // to what it produced before this channel existed.
+    const dir = await mkdtemp(join(tmpdir(), 'vg-unexamined-'));
+    TEMP_DIRS.push(dir);
+    await writeFile(join(dir, 'ok.js'), 'export const a = 1;\n', 'utf8');
+    const scan = await scanPath(dir, { config: false });
+    expect(scan.unexamined).toBeUndefined();
+  });
+
+  it('does not contribute to summary, findings or the severity tally', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'vg-unexamined-'));
+    TEMP_DIRS.push(dir);
+    await mkdir(join(dir, 'dist'));
+    await writeFile(join(dir, 'dist', 'x.js'), 'export const a = 1;\n', 'utf8');
+    await writeFile(join(dir, 'ok.js'), 'export const b = 2;\n', 'utf8');
+    const scan = await scanPath(dir, { config: false });
+    expect(scan.unexamined!.length).toBeGreaterThan(0);
+    expect(scan.findings).toHaveLength(0);
+    expect(scan.summary.total).toBe(0);
   });
 });

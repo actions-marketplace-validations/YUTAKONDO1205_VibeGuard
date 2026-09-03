@@ -9,6 +9,11 @@ import { goRules } from './rules/lang-go.js';
 import { javaRules } from './rules/lang-java.js';
 import { rubyRules } from './rules/lang-ruby.js';
 import { phpRules } from './rules/lang-php.js';
+import { cRules } from './rules/lang-c.js';
+import { embeddedAiRules } from './rules/embedded-ai.js';
+import { rtosRules } from './rules/embedded-rtos.js';
+import { designSmellSingleRules } from './rules/design-smells-single.js';
+import { aiSupplyChainRules } from './rules/ai-supply-chain.js';
 
 export type { RuleDefinition, RuleMatch, RuleContext } from './rule-types.js';
 export {
@@ -17,17 +22,41 @@ export {
   languageMatches,
   getLineText,
   isCommentLine,
+  getLineCommentSpec,
+  lineCommentStartsAt,
+  hasLineCommentSpec,
+  captureRegexBoundaries,
+  withScanDeadline,
+  extractBlockAfter,
+  blankCommentsAndStrings,
+  blankJsLiterals,
+  lineCommentEnd,
+  languageSplicesLineContinuations,
+  blankPyLiterals,
+  REGEX_INPUT_CAP,
+  REGEX_DEADLINE_MS,
+  REGEX_MATCH_LIMIT,
+  type KnownLanguage,
+  type LineCommentSpec,
+  type RegexBoundaryEvent,
+  type ExtractedBlock,
 } from './matcher-utils.js';
 export {
   contextConfidence,
+  explainContextConfidence,
   downgradeConfidence,
   detectDowngradeSignals,
   isInDocstringOrBlockComment,
   isTestPath,
+  SEVERITY_CONFIDENCE_FLOOR,
   TEST_PATH_RE,
   type ContextConfidenceMode,
+  type ContextConfidenceResult,
   type DowngradeSignal,
 } from './confidence.js';
+// The near-miss resolver behind VG-AISC-001, exported so the CLI-only rename
+// fixer computes "did you mean" with the DETECTOR'S code, not a copy of it.
+export { nearestKnownPackage } from './rules/ai-supply-chain.js';
 
 export const allRules: RuleDefinition[] = [
   ...injectionRules,
@@ -40,6 +69,11 @@ export const allRules: RuleDefinition[] = [
   ...javaRules,
   ...rubyRules,
   ...phpRules,
+  ...cRules,
+  ...embeddedAiRules,
+  ...rtosRules,
+  ...designSmellSingleRules,
+  ...aiSupplyChainRules,
 ];
 
 export function getRule(ruleId: string): RuleDefinition | undefined {

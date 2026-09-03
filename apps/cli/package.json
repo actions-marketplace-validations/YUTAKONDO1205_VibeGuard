@@ -1,25 +1,34 @@
 {
   "name": "@vibeguard/cli",
-  "version": "0.1.3",
+  "version": "0.3.6",
+  "private": true,
   "type": "module",
   "main": "./dist/index.js",
   "bin": {
     "vibeguard": "dist/index.js"
   },
+  "files": [
+    "dist"
+  ],
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "npm run typecheck && node build.mjs",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "prepack": "node build.mjs",
     "clean": "rimraf dist",
     "test": "vitest run",
     "start": "node dist/index.js"
   },
-  "dependencies": {
-    "@vibeguard/analyzer-core": "0.1.3",
-    "@vibeguard/findings-schema": "0.1.3",
-    "@vibeguard/sarif-adapter": "0.1.3"
-  },
   "devDependencies": {
+    "@types/node": "^20.19.43",
+    "@vibeguard/analysis-graph": "0.3.6",
+    "@vibeguard/analyzer-core": "0.3.6",
+    "@vibeguard/artifact-integrity": "0.3.6",
+    "@vibeguard/external-adapters": "0.3.6",
+    "@vibeguard/findings-schema": "0.3.6",
+    "@vibeguard/remediation-engine": "0.3.6",
+    "@vibeguard/sarif-adapter": "0.3.6",
+    "esbuild": "^0.28.2",
     "typescript": "^5.4.5",
-    "vitest": "^1.6.0",
-    "@types/node": "^20.19.43"
+    "vitest": "^1.6.0"
   }
 }

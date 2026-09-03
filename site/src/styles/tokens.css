@@ -1,0 +1,593 @@
+/* tokens.css — the only file on this site that is allowed to contain a colour.
+ *
+ * WHY THIS FILE IS ALONE
+ *
+ * Every band on this site re-paints its own foreground. A dark code band is not
+ * a special component with special colours; it is a scope in which `--vg-ink`,
+ * `--vg-brand` and the four severity tokens simply mean something else. A
+ * component therefore writes `var(--vg-sev-high)` and is correct on a white
+ * band and on a near-black one, without knowing which it is standing on.
+ *
+ * That property only holds while the components stay ignorant. One `#B3261E`
+ * written into components.css to "fix" the finding block on the dark band is
+ * enough to break it, and the breakage is invisible until someone opens the
+ * page in the other colour scheme. So the rule is mechanical rather than
+ * cultural: a colour literal outside this file fails CI, and dark mode below is
+ * one block of re-definitions instead of a second copy of the stylesheet.
+ *
+ * WHAT THIS PALETTE IS A TRANSLATION OF
+ *
+ * Apple's design language: a near-white canvas, hairline rules instead of
+ * shadows, one accent that is the only chromatic interactive colour, and type
+ * doing the work that decoration does elsewhere. Three of its four surfaces are
+ * taken literally — Frost #F5F5F7, Ice #F4F8FB, Carbon #1D1D1F — because they
+ * are what makes the canvas read as that canvas rather than as a generic light
+ * theme.
+ *
+ * The accent is where this site does not follow. Apple's system is built around
+ * one blue in three roles: a fill (#0071E3), a deeper outline/link (#0066CC),
+ * and a light decorative tone (#2997FF). That role structure is kept exactly.
+ * The hue is not: this product's accent has always been green, on the argument
+ * recorded below, so the three roles are filled by three greens. What is
+ * borrowed is the grammar, not the vocabulary.
+ *
+ * WHAT THE NUMBERS IN THE COMMENTS ARE
+ *
+ * The ratios quoted here are WCAG 2.x relative-luminance contrast ratios, and
+ * they are not decoration: `site/scripts/contrast.mjs` parses this file and
+ * recomputes every one of them on each build. Editing a HEX here without
+ * editing the ratio in the comment is safe — the checker is the authority and
+ * will fail the build if the pair drops below its floor. Editing a HEX and
+ * having the build stay green means the pair is genuinely still fine.
+ *
+ * The checker finds its scopes by the `contrast-scope:` sentinel comments
+ * below, and errors out if one of them is missing. A checker that silently
+ * examines nothing is worse than no checker, so the sentinels are required
+ * rather than best-effort.
+ */
+
+/* contrast-scope: light */
+:root {
+  /* ── Surfaces ────────────────────────────────────────────────────────────
+   * Four bands' worth of surface. The ladder is the reference's — a near-white
+   * canvas, white as the lifted band, a barely-blue wash, and one dark surface
+   * — with every rung moved one stop toward the light. The canvas is above
+   * Frost rather than at it, the wash is lighter than Ice, and the dark surface
+   * is the elevated grey of the model's dark palette rather than its Carbon.
+   *
+   * That lift is bounded by two things and neither is taste. The dark surface
+   * cannot rise past the point where the light greys on it stop clearing 4.5,
+   * and the canvas cannot rise past white, which is where --vg-surface-tint
+   * already is. What is left is roughly the one stop taken here; the checker
+   * below is what says the result still holds.
+   *
+   * The ordering is inherited from the previous palette and matters more than
+   * the hues: the code surface stays the darkest of the four, so a page reads
+   * top to bottom the same way it always did.
+   *
+   * The three light surfaces are within 1.08 of each other, which is the model
+   * being followed rather than an accident — it separates its sections by a
+   * barely-there wash rather than by a hard edge. That is also why every band
+   * in bands.css draws a 1px --vg-rule line at its top: at those ratios the
+   * surface alone does not tell a reader that one section ended and another
+   * began.
+   */
+  --vg-surface-base: #FAFAFA;
+  --vg-surface-tint: #FFFFFF;
+  --vg-surface-code: #2C2C2E;
+  --vg-surface-news: #F7FBFD;
+
+  /* ── Ink ─────────────────────────────────────────────────────────────────
+   * Carbon for primary text and Apple's own secondary grey under it.
+   *
+   * The secondary grey is one step darker than either of the two the reference
+   * quotes, and the reason is the canvas. Apple's #707070 and #6E6E73 are set
+   * against white; here they are set against Frost, and against the pale green
+   * of --vg-brand-soft under that. #707070 lands at 4.55 on Frost and #6E6E73
+   * at 4.45 on the soft pill — one clears the floor by four hundredths, the
+   * other misses it by five. #5E5E63 is the same family, one stop down, and
+   * clears both with room: it is what the model's grey has to be once the
+   * background stops being white.
+   *
+   * --vg-ink-on-code has two jobs: text on the Carbon surface and the label of
+   * the filled button, which sits on --vg-brand-strong. It is one token because
+   * those two jobs never disagree in the light scheme; see the dark block for
+   * the two places where a similar double job does disagree.
+   */
+  --vg-ink: #1D1D1F;
+  --vg-ink-muted: #5E5E63;
+  --vg-ink-on-code: #F5F5F7;
+
+  /* ── Brand ───────────────────────────────────────────────────────────────
+   * Green rather than the dark blue that security tooling usually reaches for,
+   * and green rather than Apple's blue for the same reason: blue would put this
+   * site in the middle of a crowd of sites that look the same, and green
+   * already carries the guard/pass meaning the product is about.
+   *
+   * The three roles are Apple's:
+   *
+   *   --vg-brand-strong  the filled action and every link — Apple's #0071E3 and
+   *                      #0066CC collapsed into one token, because this site's
+   *                      components already share it between those two jobs.
+   *   --vg-brand         the visible accent: the // heading mark, the category
+   *                      circles, the left edge of an added line, the `safe`
+   *                      tag. Apple's decorative role.
+   *   --vg-brand-soft    a surface, not a foreground. Apple has no equivalent;
+   *                      it is what the Available and Start-here pills are
+   *                      filled with.
+   *
+   * One place the translation inverts the model deliberately. Apple's fill is
+   * the LIGHTER of its two blues and its link the deeper one. Here the fill is
+   * the deeper green, because a green vivid enough to match #0071E3's lightness
+   * cannot carry a near-white label at 4.5 — the constraint that set this
+   * site's green in the first place, and it has not gone away.
+   */
+  --vg-brand: #1A7F37;
+  --vg-brand-strong: #0F6B2E;
+  --vg-brand-soft: #EDF7F0;
+
+  /* ── Lines ───────────────────────────────────────────────────────────────
+   * #D2D2D7 is Apple's hairline, used unchanged. It is faint, and that is on
+   * purpose: a rule on this site is decoration — the dashed separator in the
+   * news list, the frame around a card, the line under the header. Nothing is
+   * knowable only by seeing one. Anything that does carry meaning uses a token
+   * that clears 3:1.
+   *
+   * The reference is explicit that this system has no elevation: hierarchy is
+   * surface shifts and 1px hairlines, never a shadow — on a card, a button, a
+   * panel or the nav. It grants exactly one exception, and --vg-shadow-image
+   * below is it.
+   *
+   * --vg-focus is never removed and never replaced by a component. It is the
+   * only reason a keyboard user can tell where they are on a site that has no
+   * script to help them. Apple rings in its accent; so does this.
+   */
+  --vg-rule: #D2D2D7;
+  --vg-focus: #0F6B2E;
+
+  /* ── The one shadow ──────────────────────────────────────────────────────
+   * The reference's single elevation value, at its single permitted use: under
+   * a product photograph, to keep it from floating on a near-white canvas. It
+   * is not available to anything else. A card, a button, a panel or a menu that
+   * reaches for this is asking for a depth model this design does not have —
+   * those are separated by a hairline and a surface shift, which is the whole
+   * point of the two tokens above it.
+   *
+   * It is a token rather than a literal in components.css for the same reason
+   * every colour is: R8 in scripts/site-copy-lint.mjs fails a build on an
+   * `rgba(` outside this file, and the rule is worth more than the exception
+   * would be convenient.
+   *
+   * Not re-defined for the dark scheme, and that is deliberate rather than an
+   * oversight: a shadow this soft is nearly invisible on a Carbon canvas, which
+   * is the correct outcome. A screenshot on a dark page does not need to be
+   * lifted off it — the frame around it already separates the two.
+   */
+  --vg-shadow-image: rgba(0, 0, 0, 0.22) 3px 5px 30px 0px;
+
+  /* ── Severity ────────────────────────────────────────────────────────────
+   * These are not new colours, and they are the one part of the palette this
+   * restyle does not touch. They are the CLI's own ANSI assignment —
+   * magenta/red/yellow/blue in apps/cli/src/format.ts — moved onto a light
+   * background, so that a red on this site and a red in a terminal mean the
+   * same thing. Changing the hue here would make every screenshot of the real
+   * tool look like a screenshot of something else, which is a heavier price
+   * than a palette that is four colours less Apple.
+   *
+   * RESERVED. A severity token means "this finding is that severe" and nothing
+   * else. It is not available for emphasis, for a warning callout, or for a NEW
+   * badge. The moment amber decorates something, the amber on a `MEDIUM` stops
+   * being information.
+   */
+  --vg-sev-critical: #8A1C6B;
+  --vg-sev-high: #B3261E;
+  --vg-sev-medium: #7A5200;
+  --vg-sev-low: #1B4F9C;
+
+  /* ── Status ──────────────────────────────────────────────────────────────
+   * `Available` borrows the brand green because it means the same thing the
+   * brand does. `Research` is slate, and the reason it is slate is elimination:
+   * green would read as "you can have this", and amber or red are reserved for
+   * severity. A neutral was the only colour left, so it is the one non-green,
+   * non-severity hue on the site — deliberately in the same family as
+   * --vg-surface-news so it still looks like it belongs here.
+   */
+  --vg-status-available: #0F6B2E;
+  --vg-status-research: #3E4C55;
+
+  /* ── Space ───────────────────────────────────────────────────────────────
+   * Eight steps. The first five are the reference's own scale walked up from
+   * its 4px base unit; the last three open out faster than the old 8px doubling
+   * did, because the thing that most makes a page read as this canvas is how
+   * much room a section is given rather than what colour it is.
+   *
+   * Bands pad top and bottom with --vg-space-8, so a section boundary is 80px
+   * of nothing plus a hairline. Card padding is --vg-space-5 (24px) and the gap
+   * between elements inside a component is --vg-space-3 (12px); both are the
+   * reference's stated numbers.
+   */
+  --vg-space-1: 0.25rem; /* 4px */
+  --vg-space-2: 0.5rem; /* 8px */
+  --vg-space-3: 0.75rem; /* 12px */
+  --vg-space-4: 1rem; /* 16px */
+  --vg-space-5: 1.5rem; /* 24px */
+  --vg-space-6: 2.5rem; /* 40px */
+  --vg-space-7: 3.5rem; /* 56px */
+  --vg-space-8: 5rem; /* 80px */
+
+  /* ── Radius ──────────────────────────────────────────────────────────────
+   * The reference allows two values and no others: 980px for anything you can
+   * press, 8px for anything that holds content. Four names are kept because
+   * four names are what the components already write, but they now resolve to
+   * those two numbers — pill and chip are both the press radius, card and code
+   * are both the container radius.
+   *
+   * Keeping the names rather than deleting two of them is deliberate: a `chip`
+   * that resolves to the pill value states that a badge is a pressable shape in
+   * this system, which is what the reference is actually asserting when it
+   * gives tags the same 980px as buttons.
+   */
+  --vg-radius-pill: 980px;
+  --vg-radius-card: 8px;
+  --vg-radius-code: 8px;
+  --vg-radius-chip: 980px;
+
+  /* ── Type scale ──────────────────────────────────────────────────────────
+   * The reference's scale, in rem so that a reader's own default size still
+   * multiplies through: 14 / 15 / 17 / 21 / 40, with the display step fluid.
+   *
+   * 17px body is the single most recognisable number in this system and the one
+   * that had to move: 16px is every site's default and reads as one. The jump
+   * from 21px to 40px for a section heading is also the reference's, and it is
+   * what produces the rhythm — the page changes scale between sections instead
+   * of drawing something between them.
+   *
+   * 900 is the hero display line and every h1; 800 is a band heading; 700 is an
+   * h3, a lead paragraph and the stage labels of the triptych; 500 is body; 400
+   * is code and anything shaped like CLI output; 300 is captions, dates and
+   * badges.
+   *
+   * Only 900 is fluid, and it is capped at 52px rather than the reference's
+   * 56px because the hero renders a real finding in a monospace face at this
+   * size — at 56px the longest rule title stops fitting the column on a laptop.
+   * The rest are fixed so that a reader who has set a larger default font size
+   * gets it; a clamp() on body text quietly overrides that preference, which is
+   * the opposite of what a fluid scale is for.
+   */
+  --vg-fs-900: clamp(2.25rem, 1.5rem + 3vw, 3.25rem); /* 36 → 52px */
+  --vg-fs-800: 2.5rem; /* 40px */
+  --vg-fs-700: 1.3125rem; /* 21px */
+  --vg-fs-500: 1.0625rem; /* 17px */
+  --vg-fs-400: 0.9375rem; /* 15px */
+  --vg-fs-300: 0.875rem; /* 14px */
+
+  /* ── Tracking ────────────────────────────────────────────────────────────
+   * The half of this typography that is not the size.
+   *
+   * The model's type is set with negative tracking that tightens as the size
+   * grows, and that is what makes a headline read as architecture rather than
+   * as big text. Three steps carry it: body, heading, display.
+   *
+   * The reference's token table quotes POSITIVE values at 28px and above
+   * (+0.44px at 40, +0.616px at 56) while its own prose, twice, describes the
+   * tracking as negative and tightening with size. The prose is followed here.
+   * Positive tracking on a 40px heading loosens exactly the thing the style is
+   * recognisable for, and the two statements cannot both be applied.
+   *
+   * The three steps are shallower than the reference's, because the face they
+   * are applied to is not the one it measured. Its values are for SF, which is
+   * drawn open enough to take -0.022em at caption size; Meiryo UI is already a
+   * tighter face and its kana are on a fixed em body that negative tracking
+   * pushes into each other rather than merely closing up. Two thirds of the
+   * quoted values keeps the effect — the heading still closes as it grows —
+   * without setting Japanese text at a spacing no Japanese text is set at.
+   */
+  --vg-track-body: -0.01em;
+  --vg-track-head: -0.014em;
+  --vg-track-display: -0.018em;
+
+  /* ── Fonts ───────────────────────────────────────────────────────────────
+   * No web font is loaded, from anywhere, in either stack. A third-party font
+   * host contradicts the one sentence this site most wants to be able to say —
+   * that nothing on it reaches out to anyone — and self-hosting trades that
+   * away for a few hundred KB on first paint plus an asset to maintain.
+   *
+   * Meiryo UI leads the stack, by decision rather than by inheritance. It is
+   * what this site is set in: one family for headings, body, navigation and
+   * buttons, so that a page has a single voice rather than whatever face each
+   * OS happens to call `system-ui`.
+   *
+   * WHAT THAT COSTS, STATED PLAINLY. Meiryo UI is a Windows font. It ships with
+   * Windows and is on no other platform, so on macOS, iOS, Android and Linux
+   * the browser walks past it and lands on the next entry that exists. The
+   * stack below is therefore not decoration: it is the design on every machine
+   * that is not a Windows one, and it is ordered so that what it lands on is a
+   * face of the same kind — a humanist UI sans with real Japanese coverage —
+   * rather than whatever the browser would have picked unaided.
+   *
+   * `メイリオ` and `Meiryo` follow because Windows installations vary in which
+   * of the three names resolve; `system-ui` and the platform names follow those
+   * because a machine with none of them still has to render something chosen.
+   *
+   * No web font is loaded, from anywhere, and Meiryo UI does not change that. A
+   * third-party font host contradicts the one sentence this site most wants to
+   * be able to say — that nothing on it reaches out to anyone — and self-hosting
+   * trades that away for a few hundred KB on first paint plus an asset to
+   * maintain. A font is used here only where it is already installed.
+   *
+   * THE MONOSPACE STACK IS DELIBERATELY NOT UNIFIED WITH IT. Meiryo UI is
+   * proportional. Every code block on this site puts a column of line numbers
+   * beside code that has to keep its indentation, and the triptych sets three
+   * of those side by side so that a reader can compare them line for line. Set
+   * in a proportional face, none of those columns line up and the comparison
+   * the band exists for stops working. The Japanese names at the end of the
+   * mono stack are there for the same reason at a smaller scale: if Japanese
+   * comment text alone fell back to a proportional face, the columns would
+   * break on exactly the lines that have a comment.
+   */
+  --vg-font-sans:
+    "Meiryo UI", "メイリオ", Meiryo, system-ui, -apple-system, "Segoe UI",
+    "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", Roboto,
+    "Helvetica Neue", sans-serif;
+
+  /* ── The light face ──────────────────────────────────────────────────────
+   * A second family, for one role, and the reason is a measurement rather than
+   * a preference.
+   *
+   * Meiryo UI ships two weights and no more. Rendering the same string at 40px
+   * across the nine CSS weights gives exactly two widths — 727.02px from 100
+   * through 500, and 790.23px from 600 through 900 — so the family's real
+   * break is between 500 and 600, and everything below it is one face. A
+   * heading set at 600 is genuinely bold in it; a subhead set at 300 is
+   * genuinely the same face as the body text beside it. The weight scale this
+   * design is built on has three steps and Meiryo UI can only draw two of them.
+   *
+   * Yu Gothic UI can draw the third: the same probe gives 653.03 at 100–300,
+   * 679.20 at 400 and 701.47 at 500–900 — a real Light, a real Regular and a
+   * real Bold. So the light step, and only the light step, is set in it.
+   *
+   * That is a mixed-family page, which is a cost worth naming. It is bounded to
+   * two elements — the hero tagline and the pitch line — both of which are set
+   * a size larger than anything they sit beside, so what a reader sees is a
+   * lighter voice rather than a different alphabet. Everything else on the site
+   * is Meiryo UI.
+   *
+   * Segoe UI is next in the stack because it draws five weights (718.86 /
+   * 746.64 / 762.72 / 783.59 / 810.84) and is the better fallback than Meiryo
+   * UI here for exactly the reason this token exists. Meiryo UI is last so that
+   * a machine with neither still lands on the site's own family rather than on
+   * the browser's default.
+   */
+  --vg-font-light:
+    "Yu Gothic UI", "游ゴシック体", YuGothic, "Segoe UI", "Hiragino Sans",
+    "Noto Sans JP", "Meiryo UI", sans-serif;
+
+  /* ── Motion ──────────────────────────────────────────────────────────────
+   * Six values — the five below and the spring after them — and they are new.
+   * This site used to state that nothing on it moved; base.css now carries the
+   * policy that replaced that one, and these are what it is written in.
+   *
+   * The curve is the important one. A linear or ease-in-out move reads as a
+   * thing being animated; this one starts fast and settles, which reads as a
+   * thing arriving. It is the same shape the model uses on everything it moves.
+   *
+   * --vg-lift is a distance rather than a duration: how far a pressable thing
+   * rises under the pointer. One value, so that a button, a card and a chip all
+   * rise by the same amount and the page has one hover rather than five.
+   */
+  --vg-motion-fast: 180ms;
+  --vg-motion: 340ms;
+  --vg-motion-slow: 680ms;
+  --vg-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --vg-lift: -3px;
+
+  /*
+   * The second curve, and the only thing on this site that overshoots.
+   *
+   * A cubic-bezier cannot go past its endpoints, so a settle — the small
+   * bounce a physical thing makes when it stops — is not expressible as one.
+   * `linear()` is: it is a piecewise curve, so the points below rise past 1 at
+   * 21.6% and come back. Measured as supported in the engine this site was
+   * checked in.
+   *
+   * WHAT HAPPENS WHERE IT IS NOT SUPPORTED, stated correctly because the first
+   * version of this note had it wrong. A `var()` substitution that produces a
+   * value the property cannot parse is invalid at computed-value time, and
+   * `animation-timing-function` does not inherit, so the declaration falls back
+   * to that property's INITIAL value, which is `ease` - not to a linear ramp.
+   * That is a perfectly ordinary curve and the animation still plays; what is
+   * lost is the overshoot, and nothing else.
+   *
+   * Two elements use it and no more: the pair of buttons in the hero, and the
+   * severity word of the hero finding. Both are single objects arriving at a
+   * stop. Applying it to a paragraph makes the text look like it bounced, which
+   * is the tell of a site that found a new easing function.
+   */
+  --vg-ease-spring: linear(
+    0, 0.402 7.4%, 0.842 15.5%, 1.023 21.6%, 1.077 27.8%, 1.018 40.1%,
+    0.995 60.3%, 1
+  );
+
+  --vg-font-mono:
+    ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
+    "DejaVu Sans Mono", "Liberation Mono",
+    "BIZ UDGothic", "MS Gothic", monospace;
+}
+
+/* ── The code scope ────────────────────────────────────────────────────────
+ *
+ * This block is the whole architecture in ten declarations. A Carbon surface
+ * does not get its own component styles; it re-defines the foreground tokens
+ * that every component already reads, so `.vg-finding` renders correctly inside
+ * it with no knowledge that it is there.
+ *
+ * The alternative — a second set of token names for "on the dark surface" — was
+ * rejected because it doubles the vocabulary at every call site: each component
+ * would then have to know which surface it is on in order to pick a name, which
+ * is exactly the knowledge this design is trying not to distribute.
+ *
+ * `.vg-panel--code` is the same scope on a smaller thing, and it is new. The
+ * hero no longer paints a whole band Carbon: it shows the finding inside a
+ * rounded Carbon panel standing on the Frost canvas, which is the reference's
+ * product-render pattern. That panel needs precisely the re-definitions the
+ * band needed, so it shares this selector rather than getting a copy of it.
+ *
+ * That the re-definition is necessary is measured, not assumed. The light
+ * --vg-brand placed unchanged on Carbon is far below the floor for text. Every
+ * value here is chosen against #1D1D1F, and holds against the #000000 the dark
+ * scheme uses, where the ratios only rise.
+ *
+ * Note that --vg-surface-code is NOT re-defined here. The surface is painted
+ * with the root value, which is what lets the dark scheme change it without
+ * touching this block.
+ */
+/* contrast-scope: code */
+.vg-band--code,
+.vg-panel--code {
+  --vg-ink: var(--vg-ink-on-code);
+  --vg-ink-muted: #A1A1A6; /* the model's own grey on a dark surface */
+  --vg-rule: #48484A; /* decorative, see above */
+  --vg-brand: #6FD98A;
+  /*
+   * Links land on this scope — the note under the triptych points at /rules —
+   * and the light --vg-brand-strong is far too dark here to be read. It
+   * resolves to the scope's own green instead. Doing this is only safe because
+   * of a separate invariant: the filled button is the other user of
+   * --vg-brand-strong, it needs the token as a FILL, and it is never placed on
+   * a Carbon surface. If a filled button ever appears here, this line becomes a
+   * bug — which is why the hero's two buttons sit on the Frost canvas above the
+   * panel rather than inside it.
+   */
+  --vg-brand-strong: var(--vg-brand);
+  --vg-focus: #BFE3C6;
+  --vg-sev-critical: #F0A5D8;
+  --vg-sev-high: #FF9E92;
+  --vg-sev-medium: #F3C55E;
+  --vg-sev-low: #92C3FF;
+}
+
+/* ── Dark ──────────────────────────────────────────────────────────────────
+ *
+ * `prefers-color-scheme` only. There is no theme toggle and there will not be
+ * one: the site serves `script-src 'none'`, so a toggle would have to be built
+ * from a hidden checkbox and `:has()`, and a toggle whose setting is forgotten
+ * on every navigation is worse than no toggle at all. The absence of a toggle
+ * also removes the three hardest parts of dark mode — persistence, the flash
+ * before the first paint, and keeping the state in sync — so what is left is
+ * this one block.
+ *
+ * The reference this palette follows is a light theme and says so. It has no
+ * dark scheme to translate, which left two options: drop dark mode, or keep the
+ * discipline the site already had and re-hue it. Dropping it would be a
+ * regression for every reader whose OS is set that way, so the second was
+ * taken. What is of the model in this block is its neutrality — Carbon and the
+ * greys around it, rather than the green-black the old palette used — and that
+ * the accent is still the only chromatic thing on the page.
+ *
+ * This is not an inversion. It is a second set of bands that keeps the first
+ * set's ordering: the code surface is still the darkest of the four, so a page
+ * reads top to bottom the same way in both schemes. The surfaces are close
+ * together here as they are in light, which is the second reason the 1px band
+ * rule is mandatory rather than a nicety.
+ *
+ * The code block above is not repeated. It is scheme-independent by
+ * construction, and the darker surface underneath it only raises its ratios.
+ */
+@media (prefers-color-scheme: dark) {
+  /* contrast-scope: dark */
+  :root {
+    /*
+     * Lifted with the light scheme, but by less, and the limit is measured
+     * rather than chosen. --vg-brand-strong fills the button and has to clear
+     * 3.0 against whatever this surface is while still carrying a near-white
+     * label at 4.5; those two constraints leave the fill a window a few
+     * hundredths of a luminance wide. Raising this surface eats that window
+     * from below. #26262A closes it entirely — the fill lands at 2.97 — so the
+     * lift stops here, one stop up rather than two.
+     */
+    --vg-surface-base: #212124;
+    --vg-surface-tint: #2E2E32;
+    --vg-surface-code: #101013;
+    --vg-surface-news: #23282B;
+
+    --vg-ink: #F5F5F7;
+    --vg-ink-muted: #A1A1A6;
+    --vg-ink-on-code: #F5F5F7;
+
+    --vg-brand: #6FD98A;
+    --vg-brand-soft: #1A3925;
+
+    /*
+     * The one token that genuinely has two values across the schemes, and it is
+     * worth recording why, because the reflex is to normalise it away.
+     *
+     * --vg-brand-strong fills the button, and a filled button has to satisfy
+     * two constraints at once: its own label (--vg-ink-on-code) must clear 4.5
+     * on it, and the button must clear 3.0 against the band behind it. On a
+     * Carbon band the light-scheme #0F6B2E disappears, so the fill has to
+     * lighten — but not past the point where the near-white label stops
+     * clearing 4.5. The window between those two constraints is narrow, and
+     * this value sits inside it.
+     */
+    --vg-brand-strong: #1A7F37;
+
+    --vg-rule: #48484A; /* decorative */
+    --vg-focus: #A9DCB4;
+
+    --vg-sev-critical: #F0A5D8;
+    --vg-sev-high: #FF9E92;
+    --vg-sev-medium: #F3C55E;
+    --vg-sev-low: #92C3FF;
+
+    --vg-status-available: #6FD98A;
+    --vg-status-research: #9FB3BE;
+  }
+
+  /*
+   * Two scopes below, for the two places where a single token is asked to be a
+   * fill in one component and a foreground in another. In the light scheme both
+   * roles happen to want the same value; in the dark scheme they pull apart,
+   * and the fix is the same mechanism the code scope uses — re-define the token
+   * where the second role lives, so no component has to learn which scheme is
+   * active.
+   *
+   * Neither of these adds a token name or a colour. Both resolve to values
+   * already defined above, and contrast.mjs checks the resulting pairs as
+   * separate environments.
+   */
+
+  /*
+   * (1) --vg-brand-strong as a foreground. Lightened for the fill (see above),
+   * it is only just a shape against the dark base and under the floor for a
+   * word. Where it is being read rather than filled, it resolves to --vg-brand
+   * instead.
+   *
+   * The filled button and the skip link are excluded because they are the fill
+   * case: they paint --vg-brand-strong as a background and put --vg-ink-on-code
+   * on top, and swapping in the lighter green there would leave a near-white
+   * label on a light green button.
+   *
+   * .vg-cta--outline is NOT excluded, and that is half the reason it is a
+   * separate class: an outlined button draws --vg-brand-strong as its border
+   * and its label, and both of those are the foreground case.
+   */
+  /* contrast-scope: fg-dark */
+  a:not(.vg-cta):not(.vg-skip),
+  .vg-cta--outline,
+  .vg-badge--new {
+    --vg-brand-strong: var(--vg-brand);
+  }
+
+  /*
+   * (2) The icon circle is its own surface. It is filled with --vg-brand and
+   * carries a pictogram stroked in --vg-ink-on-code. In the light scheme the
+   * brand green is dark and a near-white stroke reads on it; in the dark scheme
+   * the brand green is light, and the same stroke would be gone. Inside the
+   * circle, therefore, "ink on this fill" is the darkest surface colour the
+   * site owns.
+   */
+  /* contrast-scope: circle-dark */
+  .vg-grid8__circle {
+    --vg-ink-on-code: var(--vg-surface-code);
+  }
+}

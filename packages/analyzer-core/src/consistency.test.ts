@@ -1,4 +1,4 @@
-// vibeguard:disable-file
+// vibeguard:disable-file VG-AUTH-004 VG-INJ-004 VG-INJ-006 VG-SEC-001
 // Test fixtures contain intentional vulnerable code to exercise the rules.
 //
 // Paper item ② — cross-channel judgment consistency (the empirical backbone of
@@ -94,7 +94,7 @@ const FIXTURE: Record<string, string> = {
   ].join('\n'),
 };
 
-describe('cross-channel consistency (paper item ②)', () => {
+describe('cross-channel consistency (evaluation E1)', () => {
   it('Chrome (browser scan), VS Code (Analyzer.scan) and CLI (scanPath) agree on a fixture', async () => {
     const browser = canonical(scanBrowserFiles(FIXTURE));
 

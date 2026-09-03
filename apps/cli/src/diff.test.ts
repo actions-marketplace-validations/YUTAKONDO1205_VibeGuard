@@ -1,9 +1,15 @@
-// vibeguard:disable-file
+// vibeguard:disable-file VG-INJ-004
 // Test fixtures contain intentional vulnerable code to exercise diff scanning.
 import { mkdtemp, writeFile, mkdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
+import {
+  evaluatePathSuppression,
+  suppressionsForPath,
+  type VibeguardConfig,
+} from '@vibeguard/analyzer-core';
+import { isSecurityJudgementSeverity } from '@vibeguard/findings-schema';
 import { parseUnifiedDiff, scanDiff } from './diff.js';
 
 const tempDirs: string[] = [];
@@ -156,5 +162,233 @@ describe('scanDiff', () => {
     ].join('\n');
     const result = await scanDiff({ cwd, range: 'unused', diffText, mode: 'fast' });
     expect(result.findings).toEqual([]);
+  });
+});
+
+/**
+ * D5 on the diff path.
+ *
+ * `scanDiff` is a third enforcement point for the config suppression channel,
+ * alongside `Analyzer.scan` and `scanPath`, and it is the one the GitHub Action
+ * runs: `--diff` is how a pull request gets its verdict. A wildcard `suppress`
+ * entry checked into a repository is therefore a way to make the PR gate agree
+ * that a critical finding is not there — which is exactly what the severity gate
+ * exists to refuse. These mirror the config tests in file-scanner.test.ts,
+ * fixture for fixture, so the two paths can be read against each other.
+ */
+describe('scanDiff — config suppression severity gate (D5)', () => {
+  // One added line per fixture, so the diff filter never decides the outcome:
+  // whatever reaches `findings` got there by surviving the suppression gate.
+  const oneLineDiff = (path: string, line: string): string =>
+    [`--- a/${path}`, `+++ b/${path}`, '@@ -0,0 +1,1 @@', `+${line}`].join('\n');
+
+  const EVAL_LINE = 'const v = eval(input);';
+  // VG-CRYPTO-003, severity low — below the gate, so the wildcard still applies.
+  const HTTP_LINE = 'const endpoint = "http://example.com/api";';
+
+  it('reports a critical finding through a rules-omitted config entry', async () => {
+    const cwd = await makeFiles({
+      'app.js': `${EVAL_LINE}\n`,
+      '.vibeguardrc.json': JSON.stringify({ suppress: [{ paths: ['**/*.js'] }] }),
+    });
+    const result = await scanDiff({
+      cwd,
+      range: 'unused',
+      diffText: oneLineDiff('app.js', EVAL_LINE),
+      mode: 'standard',
+    });
+    const f = result.findings.find((x) => x.ruleId === 'VG-INJ-004');
+    expect(f).toBeDefined();
+    expect(f?.severity).toBe('critical');
+    expect(f?.suppressionOverridden).toEqual({ channel: 'config', scope: 'path' });
+  });
+
+  it('predicate comparison: the pre-D5 predicate would have dropped that finding', async () => {
+    // Scope, so the name does not promise more than it delivers: this compares
+    // the two PREDICATES on the resolved set. It does NOT run `diff.ts`, so
+    // reverting the gate at diff.ts:208 leaves this test green — the end-to-end
+    // mutation control for that call site is the preceding test, which goes red.
+    // (Named "mutation control" until 2026-07-20, which overstated it.)
+    //
+    // `legacy` is the severity-blind body `diff.ts` used before the gate —
+    // `pathSuppressed.has('*') || pathSuppressed.has(f.ruleId)` — run on the
+    // same resolved set that `scanDiff` resolves for this file.
+    const cfg: VibeguardConfig = { suppress: [{ paths: ['**/*.js'] }] };
+    const s = suppressionsForPath(cfg, 'app.js', new Date('2026-07-20T00:00:00Z'));
+    const legacy = s.has('*') || s.has('VG-INJ-004');
+    expect(legacy).toBe(true);
+    // And the gate that replaced it disagrees, on that same set.
+    expect(evaluatePathSuppression(s, 'VG-INJ-004', 'critical')).toEqual({
+      suppressed: false,
+      overridden: { channel: 'config', scope: 'path' },
+    });
+  });
+
+  it.each(['critical', 'high', 'medium'] as const)(
+    'refuses a wildcard against a %s finding',
+    (severity) => {
+      // The gate follows the shared predicate rather than a list copied beside
+      // it, so the three severities it keeps are pinned to that predicate.
+      expect(isSecurityJudgementSeverity(severity)).toBe(true);
+      const s = new Set(['*']);
+      expect(evaluatePathSuppression(s, 'VG-ANY-001', severity).suppressed).toBe(false);
+    },
+  );
+
+  it('still suppresses a low-severity finding under a wildcard', async () => {
+    // Below the gate nothing changes: `suppress` remains a working noise filter
+    // for the findings it was mostly written for.
+    const cwd = await makeFiles({
+      'net.js': `${HTTP_LINE}\n`,
+      '.vibeguardrc.json': JSON.stringify({ suppress: [{ paths: ['**/*.js'] }] }),
+    });
+    const diffText = oneLineDiff('net.js', HTTP_LINE);
+
+    // First establish the finding exists at all without the config, or the
+    // assertion below would pass on an empty scan.
+    const unsuppressed = await scanDiff({
+      cwd,
+      range: 'unused',
+      diffText,
+      mode: 'standard',
+      config: false,
+    });
+    const low = unsuppressed.findings.find((x) => x.ruleId === 'VG-CRYPTO-003');
+    expect(low).toBeDefined();
+    expect(low?.severity).toBe('low');
+    expect(isSecurityJudgementSeverity('low')).toBe(false);
+
+    const result = await scanDiff({
+      cwd,
+      range: 'unused',
+      diffText,
+      mode: 'standard',
+    });
+    expect(result.findings.some((x) => x.ruleId === 'VG-CRYPTO-003')).toBe(false);
+  });
+
+  it('still honours a config entry that names the rule, at critical', async () => {
+    // The escape hatch. Naming the rule is a deliberate statement about that
+    // rule, so it is honoured at every severity — the wildcard is not.
+    const cwd = await makeFiles({
+      'app.js': `${EVAL_LINE}\n`,
+      '.vibeguardrc.json': JSON.stringify({
+        suppress: [{ paths: ['**/*.js'], rules: ['VG-INJ-004'] }],
+      }),
+    });
+    const result = await scanDiff({
+      cwd,
+      range: 'unused',
+      diffText: oneLineDiff('app.js', EVAL_LINE),
+      mode: 'standard',
+    });
+    expect(result.findings.some((x) => x.ruleId === 'VG-INJ-004')).toBe(false);
+  });
+
+  it('leaves suppressionOverridden unset when no config is in play', async () => {
+    // The marker is an audit record of a refusal. If it appeared on findings
+    // nobody tried to suppress it would say nothing.
+    const cwd = await makeFiles({ 'app.js': `${EVAL_LINE}\n` });
+    const result = await scanDiff({
+      cwd,
+      range: 'unused',
+      diffText: oneLineDiff('app.js', EVAL_LINE),
+      mode: 'standard',
+    });
+    const f = result.findings.find((x) => x.ruleId === 'VG-INJ-004');
+    expect(f).toBeDefined();
+    expect(f?.suppressionOverridden).toBeUndefined();
+  });
+});
+
+/**
+ * D8 through `scanDiff`, end-to-end.
+ *
+ * This block exists in this shape because of a specific past miss: when D5 added
+ * the config gate at this call site, the only test covering it here compared the
+ * two PREDICATES and never ran `scanDiff`, so reverting the call site left the
+ * suite green. Every assertion below therefore goes through `scanDiff` and reads
+ * its response — a test that calls `tallySuppression` directly would prove
+ * nothing about whether this path records anything.
+ *
+ * Observability, not defence: the findings counted here are suppressed, and are
+ * meant to be.
+ */
+describe('scanDiff — suppression tally (D8)', () => {
+  const oneLineDiff = (path: string, line: string): string =>
+    [`--- a/${path}`, `+++ b/${path}`, '@@ -0,0 +1,1 @@', `+${line}`].join('\n');
+
+  const EVAL_LINE = 'const v = eval(input);';
+
+  it('records a config entry that names a critical rule', async () => {
+    const cwd = await makeFiles({
+      'app.js': `${EVAL_LINE}\n`,
+      '.vibeguardrc.json': JSON.stringify({
+        suppress: [{ paths: ['**/*.js'], rules: ['VG-INJ-004'] }],
+      }),
+    });
+    const result = await scanDiff({
+      cwd,
+      range: 'unused',
+      diffText: oneLineDiff('app.js', EVAL_LINE),
+      mode: 'standard',
+    });
+    expect(result.findings.some((f) => f.ruleId === 'VG-INJ-004')).toBe(false);
+    expect(result.summary.critical).toBe(0);
+    expect(result.suppressions).toContainEqual({
+      ruleId: 'VG-INJ-004',
+      channel: 'config',
+      scope: 'path',
+      filePath: 'app.js',
+      count: 1,
+    });
+  });
+
+  it('records a pragma on the changed line', async () => {
+    // The pragma half reaches this response only if `scanDiff` merges what the
+    // analyzer returned per file, which it discards otherwise.
+    const line = `${EVAL_LINE} // vibeguard:disable-line VG-INJ-004`;
+    const cwd = await makeFiles({ 'app.js': `${line}\n` });
+    const result = await scanDiff({
+      cwd,
+      range: 'unused',
+      diffText: oneLineDiff('app.js', line),
+      mode: 'standard',
+    });
+    expect(result.findings.some((f) => f.ruleId === 'VG-INJ-004')).toBe(false);
+    const rec = result.suppressions?.find((s) => s.ruleId === 'VG-INJ-004');
+    expect(rec?.channel).toBe('pragma');
+    expect(rec?.count).toBe(1);
+  });
+
+  it('does not count a config suppression outside the changed lines', async () => {
+    // A diff scan reports only what the diff touched, so a finding on an
+    // untouched line was never going to be shown. Counting its suppression would
+    // claim something was hidden that the diff scan would not have surfaced.
+    const cwd = await makeFiles({
+      'app.js': `const safe = 1;\n${EVAL_LINE}\n`,
+      '.vibeguardrc.json': JSON.stringify({
+        suppress: [{ paths: ['**/*.js'], rules: ['VG-INJ-004'] }],
+      }),
+    });
+    const result = await scanDiff({
+      cwd,
+      range: 'unused',
+      diffText: oneLineDiff('app.js', 'const safe = 1;'),
+      mode: 'standard',
+    });
+    expect(result.suppressions?.some((s) => s.channel === 'config')).not.toBe(true);
+  });
+
+  it('omits the field when nothing was suppressed', async () => {
+    const cwd = await makeFiles({ 'app.js': `${EVAL_LINE}\n` });
+    const result = await scanDiff({
+      cwd,
+      range: 'unused',
+      diffText: oneLineDiff('app.js', EVAL_LINE),
+      mode: 'standard',
+    });
+    expect(result.findings.some((f) => f.ruleId === 'VG-INJ-004')).toBe(true);
+    expect('suppressions' in (result as object)).toBe(false);
   });
 });

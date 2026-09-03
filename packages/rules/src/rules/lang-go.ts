@@ -25,8 +25,11 @@ export const goSqlSprintf: RuleDefinition = {
   match: (ctx) =>
     runRegex(
       ctx.content,
-      /fmt\.Sprintf\s*\(\s*["`][^"`\n]*\b(?:SELECT|INSERT|UPDATE|DELETE|FROM|INTO|WHERE)\b/gi,
-      { skipCommentLines: true },
+      // A1: bounded (`\s{0,20}`), not horizontal-only. gofmt keeps a line break
+      // after `(` when the SQL string is long, so banning newlines here loses an
+      // ordinary Go formatting. Bounding is what removes the backtracking.
+      /fmt\.Sprintf\s{0,20}\(\s{0,20}["`][^"`\n]*\b(?:SELECT|INSERT|UPDATE|DELETE|FROM|INTO|WHERE)\b/gi,
+      { skipCommentLines: true, language: ctx.language },
     ),
 };
 
@@ -48,8 +51,9 @@ export const goTemplateHtmlCast: RuleDefinition = {
   match: (ctx) =>
     runRegex(
       ctx.content,
-      /\btemplate\.(?:HTML|JS|URL|HTMLAttr|CSS|Srcset)\s*\(\s*(?!["`])[\w.()\[\]]+\s*\)/g,
-      { skipCommentLines: true },
+      // Bounded, not horizontal-only — see the Sprintf rule above for why.
+      /\btemplate\.(?:HTML|JS|URL|HTMLAttr|CSS|Srcset)\s{0,20}\(\s{0,20}(?!["`])[\w.()\[\]]{1,200}\s{0,20}\)/g,
+      { skipCommentLines: true, language: ctx.language },
     ),
 };
 
@@ -73,7 +77,7 @@ export const goListenAllInterfacesHttp: RuleDefinition = {
     runRegex(
       ctx.content,
       /\bhttp\.ListenAndServe\s*\(\s*["`]:\d+["`]/g,
-      { skipCommentLines: true },
+      { skipCommentLines: true, language: ctx.language },
     ),
 };
 

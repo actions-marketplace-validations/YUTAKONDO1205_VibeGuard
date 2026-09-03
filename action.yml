@@ -23,6 +23,10 @@ inputs:
     description: 'Severity threshold to fail the job: critical | high | medium | low | never.'
     required: false
     default: 'high'
+  min-confidence:
+    description: 'Hide findings below this confidence: high | medium | low. Hidden findings are excluded from fail-on too, so the job can pass even though lower-confidence findings exist (the hidden count is printed to stderr). Best left unset in CI gates; intended for triage runs. Empty = show all.'
+    required: false
+    default: ''
   out:
     description: 'Write the report to this path (relative to the consumer workspace) instead of stdout.'
     required: false
@@ -35,6 +39,10 @@ inputs:
     description: 'Comma-separated list of additional directory names to ignore (e.g. "vendor,build").'
     required: false
     default: ''
+  include-design-smells:
+    description: 'Also run cross-file design-smell analysis over the whole target ("true" / "false"). Reads every source file in the tree, so it costs more than the default per-file scan. Off by default: it is a different analysis with a different cost profile, and enabling it by default would change the findings of every existing workflow without anyone asking for it. Ignored when "diff" is set, because cross-file analysis needs whole files rather than added lines.'
+    required: false
+    default: 'false'
   known-only:
     description: 'Restrict scanning to files with known language extensions ("true" / "false").'
     required: false
@@ -60,7 +68,7 @@ runs:
   using: 'composite'
   steps:
     - name: Setup Node.js
-      uses: actions/setup-node@v6
+      uses: actions/setup-node@v7
       with:
         node-version: ${{ inputs.node-version }}
 
@@ -81,6 +89,8 @@ runs:
         npm run build -w @vibeguard/remediation-engine
         npm run build -w @vibeguard/sarif-adapter
         npm run build -w @vibeguard/analyzer-core
+        npm run build -w @vibeguard/analysis-graph
+        npm run build -w @vibeguard/external-adapters
         npm run build -w @vibeguard/cli
 
     - name: Run VibeGuard
@@ -93,23 +103,37 @@ runs:
         VG_MODE: ${{ inputs.mode }}
         VG_FORMAT: ${{ inputs.format }}
         VG_FAIL_ON: ${{ inputs.fail-on }}
+        VG_MIN_CONFIDENCE: ${{ inputs.min-confidence }}
         VG_OUT: ${{ inputs.out }}
         VG_DIFF: ${{ inputs.diff }}
         VG_IGNORE: ${{ inputs.ignore }}
+        VG_DESIGN_SMELLS: ${{ inputs.include-design-smells }}
         VG_KNOWN_ONLY: ${{ inputs.known-only }}
         VG_NO_REM: ${{ inputs.no-remediation }}
       run: |
         set +e
         args=()
+        # `path` applies on BOTH branches. It used to be dropped whenever
+        # `diff` was set, so a workflow asking for `path: packages/api` plus a
+        # diff range silently scanned the whole repository instead — the
+        # opposite of what it wrote, and in the widening direction.
+        #
+        # This is safe only because the CLI now resolves diff paths against the
+        # repository root and treats the target as a filter. Before that, a
+        # subdirectory target made every read fail and the scan report clean, so
+        # passing `path` here would have converted a scope bug into a silent
+        # all-clear. Order matters: this line must not ship without that fix.
+        args+=("$VG_PATH")
         if [ -n "$VG_DIFF" ]; then
           args+=("--diff" "$VG_DIFF")
-        else
-          args+=("$VG_PATH")
         fi
         args+=("--mode" "$VG_MODE")
         args+=("--format" "$VG_FORMAT")
         args+=("--fail-on" "$VG_FAIL_ON")
 
+        if [ -n "$VG_MIN_CONFIDENCE" ]; then
+          args+=("--min-confidence" "$VG_MIN_CONFIDENCE")
+        fi
         if [ -n "$VG_OUT" ]; then
           args+=("--out" "$VG_OUT")
         fi
@@ -123,6 +147,9 @@ runs:
         fi
         if [ "$VG_KNOWN_ONLY" = "true" ]; then
           args+=("--known-only")
+        fi
+        if [ "$VG_DESIGN_SMELLS" = "true" ]; then
+          args+=("--include-design-smells")
         fi
         if [ "$VG_NO_REM" = "true" ]; then
           args+=("--no-remediation")

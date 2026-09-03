@@ -1,0 +1,32 @@
+---
+/**
+ * The 404.
+ *
+ * A heading, one sentence, one link home. Nothing else, and the omissions are
+ * the design:
+ *
+ *   · No search box. Searching needs an index and client-side JavaScript, and
+ *     this site ships neither. A box that cannot search is worse than no box.
+ *   · No sitemap. The footer already carries one on every page, this one
+ *     included.
+ *   · No call to action. A visitor who mistyped a URL is not in a moment to be
+ *     sold to, and putting the button on the error page would weaken the claim
+ *     it earns everywhere else: that it appears where it is useful (§3.7.2).
+ *
+ * Cloudflare's static-asset handler serves this file for an unmatched path, so
+ * it is a page like any other and gets the same layout, header and footer.
+ */
+import ProductLayout from '../layouts/ProductLayout.astro';
+import PageHero from '../components/PageHero.astro';
+---
+
+<ProductLayout title="Not found — VibeGuard" description="That page does not exist.">
+  {/*
+    The way out is a button rather than a sentence with a link in it. This is
+    the one page a reader did not choose to be on, so the single thing they can
+    do about it should be shaped like a thing you press.
+  */}
+  <PageHero id="notfound-h" title="Not found" tagline="That page does not exist.">
+    <a class="vg-cta vg-cta--outline" slot="actions" href="/">Go to the front page</a>
+  </PageHero>
+</ProductLayout>

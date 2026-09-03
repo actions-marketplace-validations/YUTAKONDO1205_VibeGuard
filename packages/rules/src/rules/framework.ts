@@ -27,7 +27,17 @@ export const djangoDebugTrue: RuleDefinition = {
     exampleFix: 'DEBUG = os.environ.get("DJANGO_DEBUG", "0") == "1"',
   },
   match: (ctx) =>
-    runRegex(ctx.content, /^\s*DEBUG\s*=\s*True\b/gm, { skipCommentLines: true }),
+    // Horizontal-only whitespace (`[^\S\r\n]`) is safe HERE specifically: under
+    // `/m` the `^` already anchors at each line start, and a Django settings
+    // assignment is a single line, so no real match is lost by refusing to cross
+    // one. That reasoning does NOT generalise — applying it to rules whose
+    // matches legitimately span lines (Allman braces, wrapped argument lists)
+    // silently dropped detections, which is why most rules bound their
+    // whitespace instead of banning line breaks. See multiline-shapes.test.ts.
+    runRegex(ctx.content, /^[^\S\r\n]*DEBUG[^\S\r\n]*=[^\S\r\n]*True\b/gm, {
+      skipCommentLines: true,
+      language: ctx.language,
+    }),
 };
 
 export const flaskDebugRun: RuleDefinition = {
@@ -49,8 +59,8 @@ export const flaskDebugRun: RuleDefinition = {
   match: (ctx) => [
     ...runRegex(
       ctx.content,
-      /\bapp\.run\s*\([^)]*\bdebug\s*=\s*True\b/g,
-      { skipCommentLines: true },
+      /\bapp\.run[^\S\r\n]*\([^)(]*\bdebug[^\S\r\n]*=[^\S\r\n]*True\b/g,
+      { skipCommentLines: true, language: ctx.language },
     ),
   ],
 };
@@ -74,18 +84,20 @@ export const corsWildcardOrigin: RuleDefinition = {
   },
   match: (ctx) => [
     // Express / koa / hapi — cors({ origin: '*' })
-    ...runRegex(ctx.content, /\bcors\s*\(\s*\{[^}]*\borigin\s*:\s*["'`]\*["'`]/g, {
+    ...runRegex(ctx.content, /\bcors[^\S\r\n]*\([^\S\r\n]*\{[^{}]*\borigin[^\S\r\n]*:[^\S\r\n]*["'`]\*["'`]/g, {
       skipCommentLines: true,
+      language: ctx.language,
     }),
     // Raw header strings — Access-Control-Allow-Origin: *
     ...runRegex(
       ctx.content,
       /["'`]Access-Control-Allow-Origin["'`]\s*[,:]\s*["'`]\*["'`]/g,
-      { skipCommentLines: true },
+      { skipCommentLines: true, language: ctx.language },
     ),
     // Flask-CORS — "origins": "*" or origins='*'
     ...runRegex(ctx.content, /["']?\borigins\b["']?\s*[:=]\s*["']\*["']/g, {
       skipCommentLines: true,
+      language: ctx.language,
     }),
   ],
 };
